@@ -55,8 +55,11 @@ function mountScrollWorld(container, config) {
     const dive = { kind: 'dive', si: i, clip: s.clip, still: s.still, accent: s.accent, w: DIVE_W };
     SEGMENTS.push(dive);
     s._seg = dive;
-    if (i < N - 1) {
-      SEGMENTS.push({ kind: 'conn', si: i, clip: CONNECTORS[i] || null,
+    // A connector is optional: if connectors[i] is falsy, the two dives simply
+    // crossfade directly (no fly-over). Lets a page complete even when a
+    // connector can't be generated (e.g. a content-filter false-positive).
+    if (i < N - 1 && CONNECTORS[i]) {
+      SEGMENTS.push({ kind: 'conn', si: i, clip: CONNECTORS[i],
                       still: SECTIONS[i + 1].still, accent: SECTIONS[i + 1].accent, w: CONN_W });
     }
   });
@@ -332,7 +335,11 @@ function injectCSS() {
   }
   @media (prefers-reduced-motion:reduce){ .sw-hint i::after{animation:none;} .sw-pt{display:none;} }
   `;
-  const style = document.createElement('style'); style.id = 'sw-css'; style.textContent = css;
+  // Wrap in a cascade layer so the page's own theme tokens (unlayered
+  // :root / .sw-root { --sw-bg / --sw-ink / --sw-accent … }) always win over
+  // these defaults, regardless of injection order. Enables clean dark themes.
+  const style = document.createElement('style'); style.id = 'sw-css';
+  style.textContent = '@layer sw {\n' + css + '\n}';
   document.head.appendChild(style);
 }
 

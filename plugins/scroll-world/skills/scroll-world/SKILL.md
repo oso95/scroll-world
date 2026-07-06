@@ -285,6 +285,20 @@ is the thing most likely to be wrong:
 - **Concurrent gens 503 / "not_enough_credits" race** → transient when many launch at
   once; re-roll the individual failure, it's not really out of credits (verify with
   `higgsfield workspace list`).
+- **NSFW false-positives (Seedance `status "nsfw"`)** → the video content filter flags
+  perfectly innocuous clips, especially **bedroom, pool, spa/wellness** contexts and
+  trigger words like "bed", "pool", "waterfall", "wine", "swim". It's partly the prompt
+  wording and partly the reference frames. Fixes, in order: (1) re-roll — it's often
+  non-deterministic and passes on the 2nd–3rd try; (2) strip trigger words and add
+  "empty, unoccupied, no people, no figures, architectural, tasteful"; (3) if a connector
+  still won't pass, set that connector slot to `null` — the engine crossfades that seam
+  directly (optional connectors), so the page still completes. Budget extra credits/time
+  for these re-rolls on interiors/real-estate content.
+- **Dark / custom theme** → the engine wraps its default tokens in `@layer sw`, so a
+  page-level `:root` / `.sw-root { --sw-bg; --sw-ink; --sw-accent; --sw-font-* }` block
+  wins cleanly (no specificity hacks). `--sw-ink` is your primary **text/heading** colour;
+  the **accent** fills the primary button and active nav. For a dark theme, set `--sw-bg`
+  dark and `--sw-ink` light — the copy scrim and title shadow follow `--sw-bg` automatically.
 - **`--generate-audio` errors on seedance** → omit it; mute in HTML and `-an` on encode.
 - **White-box scenes** → `gpt_image_2` returns a solid bg; either match the page bg to it
   or knock it out (Step 3).
