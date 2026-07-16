@@ -13,6 +13,7 @@
        connScroll: 0.9,   // ...per connector clip
        hint: 'scroll to fly in',
        nav: true,         // show the top section nav
+       hashNavigation: true, // enable #section-id links + nav hash updates
        atmosphere: true,  // subtle gradient + drifting particles behind the clips
        sections: [
          { id, label, still, stillMobile, clip, clipMobile, accent,
@@ -77,8 +78,11 @@ function mountScrollWorld(container, config) {
   const DIVE_W = config.diveScroll || 1.3;
   const CONN_W = config.connScroll || 0.9;
   const CROSSFADE = (config.crossfade != null) ? config.crossfade : 0.12;  // seam dissolve width (vh)
+  const HASH_NAV = config.hashNavigation !== false;
   const N = SECTIONS.length;
   if (!N) return;
+  const sectionIds = Object.create(null);
+  SECTIONS.forEach((s, i) => { if (s.id) sectionIds[String(s.id)] = i; });
 
   injectCSS();
   container.classList.add('sw-root');
@@ -161,11 +165,11 @@ function mountScrollWorld(container, config) {
 
     const dot = el('button', 'sw-route__dot'); dot.style.setProperty('--sw-accent', s.accent || '');
     dot.innerHTML = `<span class="sw-route__label">${esc(s.label || '')}</span><i></i>`;
-    dot.addEventListener('click', () => jumpTo(i)); route.appendChild(dot); dots.push(dot);
+    dot.addEventListener('click', () => jumpTo(i, { updateHash: HASH_NAV })); route.appendChild(dot); dots.push(dot);
 
     if (config.nav !== false) {
       const b = el('button', 'sw-nav__item'); b.textContent = s.label || '';
-      b.addEventListener('click', () => jumpTo(i)); nav.appendChild(b);
+      b.addEventListener('click', () => jumpTo(i, { updateHash: HASH_NAV })); nav.appendChild(b);
     }
   });
 
@@ -190,9 +194,30 @@ function mountScrollWorld(container, config) {
     read();
   }
 
-  function jumpTo(i) {
+  function jumpTo(i, opts) {
     const seg = SECTIONS[i]._seg;
+    if (!seg) return;
+    opts = opts || {};
+    if (opts.updateHash) updateHash(SECTIONS[i].id);
     window.scrollTo({ top: seg.start + (seg.end - seg.start) * 0.5, behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  function sectionIndexFromHash() {
+    if (!HASH_NAV || !window.location.hash) return -1;
+    let id = window.location.hash.slice(1);
+    try { id = decodeURIComponent(id); } catch (e) {}
+    return Object.prototype.hasOwnProperty.call(sectionIds, id) ? sectionIds[id] : -1;
+  }
+
+  function updateHash(id) {
+    if (!id || !window.history || !window.history.pushState) return;
+    const hash = '#' + encodeURIComponent(String(id));
+    if (window.location.hash !== hash) window.history.pushState(null, '', hash);
+  }
+
+  function jumpToHash() {
+    const i = sectionIndexFromHash();
+    if (i >= 0) jumpTo(i);
   }
 
   function loadClip(s) {
@@ -321,7 +346,23 @@ function mountScrollWorld(container, config) {
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', layout);
   window.addEventListener('load', layout);
+  if (HASH_NAV) {
+    container.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('a[href^="#"]');
+      if (!a || !container.contains(a)) return;
+      const raw = a.getAttribute('href');
+      if (!raw || raw === '#') return;
+      let id = raw.slice(1);
+      try { id = decodeURIComponent(id); } catch (err) {}
+      if (!Object.prototype.hasOwnProperty.call(sectionIds, id)) return;
+      e.preventDefault();
+      updateHash(id);
+      jumpTo(sectionIds[id]);
+    });
+    window.addEventListener('hashchange', jumpToHash);
+  }
   layout();
+  jumpToHash();
   requestAnimationFrame(raf);
 
   // ---- helpers ----
