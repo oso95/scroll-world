@@ -112,11 +112,16 @@ If auth fails, ask the user to run `higgsfield auth login` and, if needed,
   stable 16:9 frame before publishing; do not let mixed dimensions reach the engine.
 - Never expose `.env` contents in command output. Exclude `.env` from `rg`, logs, and
   final answers.
+- Large video downloads can time out after a provider job has already succeeded. Save the
+  provider response JSON before downloading, use a downloader with redirects, retries,
+  connect/read timeouts, and resume from the saved response instead of submitting a paid
+  job again.
 - Local static servers may fail in the sandbox with `EPERM`, or a stale process may hold
   a port. Retry on another port and verify with the browser, not just `lsof`.
-- Generations take minutes. Run long batches detached or resumable, save response JSON,
-  and poll progress; do not restart a successful paid job just because a later local
-  encode step failed.
+- Generations take minutes. Create a small manifest/status file before batching, record
+  each scene and connector as pending/running/completed, poll progress, and report the
+  current item during long work. Do not restart a successful paid job just because a later
+  local download or encode step failed.
 
 ---
 
@@ -199,6 +204,13 @@ Subject: <what is in THIS diorama>.
   the returned file into the project under a stable path such as
   `assets/generated/<world>/<scene>/still.png` and mirror site-ready posters under
   `public/assets/stills/`.
+- **Reference-image boundary (especially for VTuber / character work).** User-supplied
+  character, outfit, pose, or model sheets are generation references, not public website
+  assets. Keep them under a private path such as `assets/references/<world>/`; pass them
+  to image/video generation only when needed; never copy the raw files into `public/`, the
+  manifest's public paths, HTML, CSS, or browser-visible URLs. Publish only generated
+  scene composites, posters, and encoded videos. Before QA, scan the public tree for raw
+  reference filenames and fail the run if any are reachable.
 - A generation may fail transiently — re-roll that one individually; don't restart the
   whole batch.
 - **Review the stills before continuing.** They must read as one cohesive world (same
@@ -317,6 +329,17 @@ Two related pacing knobs live in the engine (Step 7): per-section `scroll` (more
 distance = longer dwell in that scene) and `linger` (the camera settles mid-scene exactly
 while the copy peaks, then picks up speed toward the seam). Prefer expressive motion in the
 *clip* and restraint in the *scrub mapping* — they compound.
+
+### Choosing A vs B for character showcases and outfit changes
+
+Use **A** when the user wants a natural continuous walkthrough: the camera keeps moving
+forward from one place into the next with no pull-back between scenes. Use **B** when the
+user explicitly wants a visual transformation such as a costume change, teleportation,
+stage reveal, or a dramatic environment switch: each scene can finish with a pull-out or
+portal-like transition before the next scene begins. Explain that B has a stronger
+"transition" feeling and can briefly reverse the camera direction; do not silently choose
+B for a grounded walk-through. For a VTuber profile, B is valid when the requested story
+is specifically "show this outfit, transform, then enter the next world".
 
 And remember scroll is a scrubber: visitors can scroll **up**, so every move also plays in
 reverse. That's free and expected — no extra work — but it's another reason seam velocity
@@ -472,6 +495,20 @@ scenes a higher `scroll` + some `linger`; keep transit scenes brisk. Theme it wi
 `--sw-bg`, `--sw-ink`, …) — the visual identity comes from the generated clips, so the
 chrome stays quiet. See the header of `scrub-engine.js` for the full config + CSS vars.
 
+**Default auto-scroll control.** The engine should show a compact, style-aware control in
+the lower-right corner unless `autoScroll: false` is explicitly configured. One click starts
+normal-speed scrolling, the second click switches to a faster pass, and the third click
+stops it; the fourth click starts the cycle again. Implement this as a real button with a
+visible state label, `aria-label`, `aria-pressed`, `:hover`, `:active`, `:focus-visible`,
+and disabled/reduced-motion states. Use the page's `--sw-bg`, `--sw-ink`, and `--sw-accent`
+tokens so it reads as part of the site's chrome rather than a generic floating CTA. Keep
+it above the scene/copy layers but clear of the route rail, and use safe-area-aware bottom
+positioning on phones. Auto-scroll must use `requestAnimationFrame`, stop at the document
+end, and never block manual scrolling. While it is running, temporarily override any
+page-level `scroll-behavior: smooth` with direct/auto positioning; applying smooth scrolling
+to every animation frame makes the browser chase queued targets and appear to require a
+manual initial scroll. Restore the page's original scroll behavior when stopped.
+
 **On phones the engine adapts automatically** (coarse pointer or ≤860px): it serves
 `clipMobile` / `connectorsMobile` when present, **coalesces seeks** (never queues a new
 `currentTime` while the decoder is still seeking — this is what stops a fast flick from
@@ -484,6 +521,12 @@ beta** part (Step 1.5): only wire them when the user asked for the mobile versio
 
 For non-JS backends (Python/Rails/etc.): serve the assets and drop the engine `<script>`
 into the rendered HTML; nothing about it is framework-specific.
+
+**Page ending and optional terminal blocks.** The default page ends on the final scene.
+Do not invent a separate profile, audio, or footer section unless the user asks for one.
+If an optional terminal block is removed, remove its CTA, `href`/hash anchor, HTML, CSS,
+and event listeners together. Test the page from both `#world` and any previously used
+hash so a stale URL does not leave a blank or misleading endpoint.
 
 ---
 
@@ -498,6 +541,11 @@ is the thing most likely to be wrong:
   the crossfade band is too short.
 - Check the console for errors, confirm `video.seekable.end(0) > 0` (blob working), and
   that `currentTime` tracks scroll across each clip's band.
+- Test the default auto-scroll control: click 1 and confirm `scrollY` increases at a calm
+  rate; click 2 and confirm the rate increases; click 3 and confirm the position stops.
+  Confirm the button exposes the current state to assistive technology, remains keyboard
+  focusable, does not overlap the route rail or mobile safe area, and is disabled when
+  `prefers-reduced-motion` is active.
 - **Mobile — full checklist only if the user opted into the mobile beta (Step 1.5).**
   For a desktop-only build, just sanity-check a phone viewport once: page loads, still
   posters show, nothing overlaps — the engine's hardening covers graceful degradation.
@@ -514,6 +562,16 @@ is the thing most likely to be wrong:
   - Portrait crops a 16:9 clip to its centre; confirm the focal subject still reads. If a
     hero scene's subject sits off-centre and gets cut, recompose it (prompts.md) or generate
     a 9:16 variant for that scene.
+- **Mobile composition gate.** Treat portrait framing as an asset/composition check, not
+  an interaction bug: before generating the mobile encodes, keep the character or focal
+  object inside a centred safe zone with headroom and side margins. If the desktop scene
+  intentionally places the subject near an edge, inspect the portrait crop and either
+  revise the scene prompt/composite or generate a focused 9:16 variant. Do not claim that
+  mobile QA fixes an off-canvas subject; the source composition must be corrected.
+- If the environment cannot provide a real phone or emulated viewport, run the available
+  artifact checks (mobile files, dimensions, manifest wiring, no horizontal overflow,
+  poster fallback, and `seekable.end(0) > 0`) and label the result as mobile artifact QA,
+  not full device QA.
 - Check reduced-motion (should fall back to the stills, no video, no particles).
 
 ---
@@ -546,6 +604,23 @@ is the thing most likely to be wrong:
   verify with a browser load, and do not treat `lsof LISTEN` alone as proof the site works.
 - **Browser QA selector drift** → the engine owns its DOM class names. If a DOM selector
   returns zero items, inspect a DOM snapshot before concluding content is missing.
+- **Raw character reference leaked into the site** → the source image was stored under
+  `public/` or copied into a browser-facing manifest. Move it to the private references
+  path, publish only the generated composite/video, and rerun the public-tree scan.
+- **Stale final anchor / redundant profile tail** → an optional profile or audio section was
+  removed without removing its CTA or hash. Default to ending on the final scene and audit
+  old hashes such as `#listen` after every structural edit.
+- **Auto-scroll control feels generic or interferes with the page** → the button was added
+  outside the engine's theme tokens, lacks the three explicit states, overlaps the route
+  rail, or ignores safe-area/reduced-motion behavior. Keep it compact, token-driven, and
+  test all three clicks plus keyboard focus.
+- **Auto-scroll appears stalled until the user scrolls manually** → a page-level
+  `scroll-behavior: smooth` is being applied to every per-frame target, or the normal speed
+  is too low to be perceptible. Use direct per-frame positioning while auto mode is active,
+  start from the current `scrollY` (not zero), and use a visible but calm speed.
+- **Long run appears stuck** → the current provider job may be finished while a local
+  download is waiting or timed out. Read the manifest and saved response JSON, identify the
+  current scene/connector, retry only that download, and never rerun completed paid jobs.
 - **Mobile source hard to inspect after blob conversion** → after the engine fetches videos
   into blob URLs, DOM `src` no longer reveals `-m.mp4`. Confirm mobile wiring in the page
   config and verify runtime behavior by checking viewport size, no horizontal overflow,

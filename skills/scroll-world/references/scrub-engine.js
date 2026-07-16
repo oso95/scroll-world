@@ -14,6 +14,7 @@
        hint: 'scroll to fly in',
        nav: true,         // show the top section nav
        atmosphere: true,  // subtle gradient + drifting particles behind the clips
+       autoScroll: true,  // show the lower-right normal → fast → stop control
        sections: [
          { id, label, still, stillMobile, clip, clipMobile, accent,
            scroll: 1.6,   // optional per-section override of diveScroll — more scroll
@@ -60,7 +61,9 @@
      - connectors' endpoints are the neighbouring dives' ACTUAL frames (see SKILL Step 5)
      - (optional) mobile variants at ~720p, -g 4 for smoother phone scrubbing
    The engine loads each clip as a Blob (always seekable) and scrubs currentTime; it does
-   NOT depend on HTTP byte-range support.
+   NOT depend on HTTP byte-range support. The auto-scroll control is enabled by default;
+   set `autoScroll: false` to hide it. It cycles normal speed → fast speed → stopped and
+   respects `prefers-reduced-motion`.
    ========================================================================== */
 
 function mountScrollWorld(container, config) {
@@ -131,9 +134,16 @@ function mountScrollWorld(container, config) {
   const hint = el('div', 'sw-hint');
   const hintText = el('span'); hintText.textContent = config.hint || 'scroll'; hint.appendChild(hintText);
   hint.appendChild(el('i'));
+  const autoScroll = el('button', 'sw-autoscroll');
+  autoScroll.type = 'button';
+  autoScroll.setAttribute('aria-controls', container.id || 'scroll-world');
+  autoScroll.setAttribute('aria-pressed', 'false');
+  const autoKicker = el('span', 'sw-autoscroll__kicker'); autoKicker.textContent = 'AUTO';
+  const autoState = el('span', 'sw-autoscroll__state'); autoState.textContent = 'STOP';
+  autoScroll.append(autoKicker, autoState);
   const track = el('div', 'sw-track');
 
-  [sky, scrollbar, topbar, stage, copylayer, route, hint, track].forEach(n => container.appendChild(n));
+  [sky, scrollbar, topbar, stage, copylayer, route, hint, autoScroll, track].forEach(n => container.appendChild(n));
 
   // segment scenes
   SEGMENTS.forEach(s => {
@@ -194,6 +204,61 @@ function mountScrollWorld(container, config) {
     const seg = SECTIONS[i]._seg;
     window.scrollTo({ top: seg.start + (seg.end - seg.start) * 0.5, behavior: reduce ? 'auto' : 'smooth' });
   }
+
+  // ---- optional auto-scroll control: normal → fast → stop ----
+  const autoEnabled = config.autoScroll !== false;
+  const AUTO_SPEEDS = [0, 72, 220]; // px/sec: calm reading pace, then a faster pass
+  let autoMode = 0, autoFrame = 0, autoLast = 0;
+  const autoScrollBehavior = document.documentElement.style.scrollBehavior;
+
+  function updateAutoScrollButton() {
+    const labels = ['STOP', '1×', '2×'];
+    const aria = ['Start automatic scrolling', 'Automatic scrolling at normal speed', 'Automatic scrolling at fast speed'];
+    autoState.textContent = labels[autoMode];
+    autoScroll.dataset.mode = String(autoMode);
+    autoScroll.setAttribute('aria-pressed', autoMode ? 'true' : 'false');
+    const label = reduce ? 'Automatic scrolling unavailable with reduced motion' : aria[autoMode];
+    autoScroll.setAttribute('aria-label', label);
+    autoScroll.title = label;
+  }
+
+  function setAutoMode(next) {
+    const wasAuto = autoMode !== 0;
+    if (next && !wasAuto) document.documentElement.style.scrollBehavior = 'auto';
+    if (!next && wasAuto) document.documentElement.style.scrollBehavior = autoScrollBehavior;
+    autoMode = next;
+    autoLast = 0;
+    if (!autoMode) {
+      if (autoFrame) cancelAnimationFrame(autoFrame);
+      autoFrame = 0;
+    } else if (!autoFrame) {
+      autoFrame = requestAnimationFrame(runAutoScroll);
+    }
+    updateAutoScrollButton();
+  }
+
+  function runAutoScroll(now) {
+    autoFrame = 0;
+    if (!autoMode) return;
+    if (!autoLast) autoLast = now;
+    const dt = Math.min(80, now - autoLast);
+    autoLast = now;
+    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const nextY = Math.min(maxY, window.scrollY + AUTO_SPEEDS[autoMode] * dt / 1000);
+    // Override page-level `scroll-behavior: smooth`: smoothing every animation
+    // frame makes the browser chase a queue of targets and appear to stall.
+    window.scrollTo({ left: 0, top: nextY, behavior: 'auto' });
+    if (nextY >= maxY - 1) { setAutoMode(0); return; }
+    autoFrame = requestAnimationFrame(runAutoScroll);
+  }
+
+  if (!autoEnabled || reduce) {
+    autoScroll.hidden = !autoEnabled;
+    if (reduce && autoEnabled) autoScroll.disabled = true;
+  } else {
+    autoScroll.addEventListener('click', () => setAutoMode((autoMode + 1) % 3));
+  }
+  updateAutoScrollButton();
 
   function loadClip(s) {
     // Under prefers-reduced-motion we never load the clips at all — the stills stay up
@@ -408,6 +473,15 @@ function injectCSS() {
   .sw-hint{position:fixed;left:50%;bottom:26px;z-index:30;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sw-ink-soft);transition:opacity .3s;}
   .sw-hint i{width:22px;height:34px;border-radius:12px;border:2px solid color-mix(in srgb,var(--sw-ink) 28%,transparent);position:relative;}
   .sw-hint i::after{content:"";position:absolute;left:50%;top:7px;width:4px;height:7px;border-radius:2px;background:var(--sw-accent);transform:translateX(-50%);animation:sw-wheel 1.7s ease-in-out infinite;}
+  .sw-autoscroll{position:fixed;right:clamp(18px,2.4vw,30px);bottom:calc(clamp(18px,3vw,30px) + env(safe-area-inset-bottom));z-index:45;display:grid;place-items:center;gap:2px;width:72px;height:72px;padding:10px;border:1px solid color-mix(in srgb,var(--sw-accent) 44%,transparent);border-radius:50%;color:var(--sw-ink);background:color-mix(in srgb,var(--sw-bg) 78%,transparent);backdrop-filter:blur(12px);box-shadow:0 10px 28px color-mix(in srgb,#000 24%,transparent);transition:transform .2s ease,border-color .25s ease,background .25s ease,box-shadow .25s ease;}
+  .sw-autoscroll:hover{border-color:var(--sw-accent);background:color-mix(in srgb,var(--sw-bg) 60%,var(--sw-accent) 10%);box-shadow:0 12px 34px color-mix(in srgb,var(--sw-accent) 24%,transparent);}
+  .sw-autoscroll:active{transform:scale(.97);}
+  .sw-autoscroll:focus-visible{outline:2px solid var(--sw-accent);outline-offset:4px;}
+  .sw-autoscroll__kicker{font:9px ui-monospace,Menlo,monospace;letter-spacing:.16em;color:var(--sw-ink-soft);}
+  .sw-autoscroll__state{font:500 15px ui-monospace,Menlo,monospace;letter-spacing:.04em;color:var(--sw-accent);}
+  .sw-autoscroll[data-mode="1"]{border-color:color-mix(in srgb,var(--sw-accent) 72%,transparent);box-shadow:0 0 0 5px color-mix(in srgb,var(--sw-accent) 12%,transparent),0 12px 34px color-mix(in srgb,var(--sw-accent) 20%,transparent);}
+  .sw-autoscroll[data-mode="2"]{border-color:var(--sw-accent);background:color-mix(in srgb,var(--sw-accent) 16%,var(--sw-bg));box-shadow:0 0 0 5px color-mix(in srgb,var(--sw-accent) 18%,transparent),0 14px 38px color-mix(in srgb,var(--sw-accent) 28%,transparent);}
+  .sw-autoscroll:disabled{cursor:not-allowed;opacity:.5;box-shadow:none;}
   @keyframes sw-wheel{0%{opacity:0;top:6px}40%{opacity:1}100%{opacity:0;top:17px}}
   .sw-track{position:relative;z-index:1;width:100%;pointer-events:none;}
   @media (max-width:860px){
@@ -420,6 +494,8 @@ function injectCSS() {
     .sw-copy__title{font-size:clamp(1.9rem,7.5vw,2.7rem);}
     .sw-copy__body{max-width:none;font-size:clamp(.98rem,3.6vw,1.1rem);} .sw-scene__video,.sw-scene__still{object-position:center 46%;}
     .sw-hint{bottom:calc(20px + env(safe-area-inset-bottom));}
+    .sw-autoscroll{right:14px;width:62px;height:62px;bottom:calc(14px + env(safe-area-inset-bottom));}
+    .sw-autoscroll__state{font-size:13px;}
     .sw-route{gap:16px;right:6px;} .sw-route__label{display:none;}
   }
   /* Portrait phones crop a 16:9 clip hard; keep the framing centred so the focal
@@ -433,7 +509,7 @@ function injectCSS() {
     .sw-route__dot{width:28px;height:28px;}
     .sw-btn{padding:15px 26px;}
   }
-  @media (prefers-reduced-motion:reduce){ .sw-hint i::after{animation:none;} .sw-pt{display:none;} }
+  @media (prefers-reduced-motion:reduce){ .sw-hint i::after{animation:none;} .sw-pt{display:none;} .sw-autoscroll{transition:none;} }
   `;
   // Wrap in a cascade layer so the page's own theme tokens (unlayered
   // :root / .sw-root { --sw-bg / --sw-ink / --sw-accent … }) always win over
