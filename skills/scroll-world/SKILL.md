@@ -2,12 +2,13 @@
 name: scroll-world
 description: >
   Build an immersive scroll-scrubbed "fly through the world" landing page for any
-  industry or brand using Higgsfield. As the visitor scrolls, a pre-rendered camera
+  industry or brand using OpenAI image generation plus a frame-locking image-to-video
+  provider such as fal.ai. As the visitor scrolls, a pre-rendered camera
   flies from outside each scene into its interior, then flows on to the next scene
   with NO cuts — one continuous connected flight (Emons-style isometric diorama world,
   or any art direction you pick). The skill interviews the user for the topic, the
   story beats/sections, and brand kit, then generates cohesive scenes + seamless camera
-  clips with Higgsfield and wires a portable, framework-agnostic scroll-scrub engine.
+  clips and wires a portable, framework-agnostic scroll-scrub engine.
   Use when the user wants a "3D world" / "browse-through-the-industry" hero, a scroll
   cinematic, a diorama landing, or to turn a business into a scrollable world.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
@@ -17,9 +18,9 @@ allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
 
 Produces a landing page where **scroll drives a camera**: it dives from outside a scene
 into its interior, then flies out and into the next scene, continuously, with no visible
-cuts. The visuals are AI-generated (Higgsfield); the page just scrubs pre-rendered video
-by scroll position. This is the same technique behind Apple's scroll-through product
-pages — the camera genuinely moves, scroll only drives time.
+cuts. The visuals are AI-generated; the page just scrubs pre-rendered video by scroll
+position. This is the same technique behind Apple's scroll-through product pages — the
+camera genuinely moves, scroll only drives time.
 
 **What you generate:** N scene stills → N "dive-in" camera clips → N-1 "connector" clips
 that join consecutive scenes seamlessly → a portable scrub engine that plays the whole
@@ -33,33 +34,89 @@ connector. Getting this wrong is the single most common failure and produces a v
 Do not assume a frontend framework. The scrub engine in `references/scrub-engine.js` is
 self-contained vanilla JS (it builds its own DOM + injects its own CSS into a container
 you give it), so it drops into plain HTML, Next.js, Vue, a Python-served page, anything.
-The value of this skill is the Higgsfield pipeline, the prompts, and the seam method —
-not the framework.
+The value of this skill is the provider-aware generation pipeline, the prompts, and the
+seam method — not the framework.
 
 ---
 
 ## Step 0 — Bootstrap
 
-1. **Higgsfield CLI.** If `higgsfield` is not on `$PATH`, install per the
-   `higgsfield-generate` skill. If `higgsfield workspace list` fails auth, ask the user
-   to run `higgsfield auth login` (interactive OAuth — you cannot run it) and, if needed,
-   `higgsfield workspace set <id>`. Confirm there are enough credits: a full run is
-   roughly `N` image gens + `(2N-1)` video gens.
-2. **ffmpeg / ffprobe** on `$PATH` (frame extraction + encoding).
-3. **An image tool** for background knockout if you want floating scenes: PIL
-   (`python3 -c "import PIL"`), or `cwebp`/`sips`. Optional — see Step 3.
-4. **(Optional) Codex CLI** — if `codex` is on `$PATH` (≥ 0.125) and
-   `codex login status` reports a ChatGPT login, the scene stills can be generated
-   through Codex's built-in `image_gen` (the same gpt-image-2 model) billed to the
-   user's ChatGPT subscription instead of Higgsfield credits — offer it at
-   Step 1.6, command in Step 2. Absence just removes the option.
-5. Caveats: macOS ships **bash 3.2** (no `declare -A`); don't use associative arrays in
-   scripts. Higgsfield generations take **3–8 min each** — always run them detached
-   (background) and poll, never a foreground blocking call. Reference-by-job-UUID is
-   rejected by media flags — pass **local file paths** to `--image/--start-image/--end-image`.
-   Video models differ in accepted params (e.g. Kling has no `--resolution`) and in whether
-   they support start/end-image conditioning at all — before batching, confirm the chosen
-   model's schema with `higgsfield model get <job_type>` and see the Step 4 model table.
+Start every run by identifying the **image provider**, **video provider**, and whether this
+is the user's first time using the stack. Do not start generating until the following
+checks pass.
+
+### Default provider stack
+
+Use this unless the user explicitly asks for another provider:
+
+1. **Image stills:** OpenAI image generation through the local `imagegen` skill/tool
+   (`gpt_image_2` when available). This avoids requiring a separate image CLI for first
+   runs.
+2. **Video clips:** fal.ai with a frame-locking image-to-video model. The tested default
+   is `fal-ai/kling-video/v3/standard/image-to-video`, because it accepts start and end
+   images for connector clips.
+3. **Encoding / QA:** local `ffmpeg`, `ffprobe`, Node.js, and `jq`.
+
+### First-run installation checks
+
+Run or verify these before planning credits or jobs:
+
+```bash
+node -v
+npm -v
+ffmpeg -version
+ffprobe -version
+jq --version
+```
+
+If a new Node project is being created, install the fal client:
+
+```bash
+npm init -y
+npm install @fal-ai/client
+```
+
+The user must provide a fal key in `.env`; accept either shell-style export or plain
+assignment, and never print the key back to the user:
+
+```bash
+FAL_KEY=...
+# or
+export FAL_KEY=...
+```
+
+Before running a paid batch, load `.env` and make one lightweight provider check. If
+auth fails, stop and ask the user to fix `FAL_KEY`; do not keep retrying paid jobs.
+
+### Optional legacy provider: Higgsfield
+
+Only use Higgsfield if the user explicitly chooses it or the project already depends on
+it. Then check:
+
+```bash
+higgsfield workspace list
+```
+
+If auth fails, ask the user to run `higgsfield auth login` and, if needed,
+`higgsfield workspace set <id>`. Confirm credits before starting. A full run costs roughly
+`N` image gens + `(2N-1)` video gens if both stills and videos are generated there.
+
+### Bootstrap caveats from prior runs
+
+- macOS ships **bash 3.2**; do not use associative arrays in copy-paste shell scripts.
+- fal jobs can succeed while the local downloader fails if the script assumes the wrong
+  response shape. For `@fal-ai/client`, handle both `result.video.url` and
+  `result.data.video.url`, and save `.response.json` so the job can resume without
+  re-rendering.
+- fal Kling V3 standard may return near-16:9 video such as `1280x716`. Pad or crop to a
+  stable 16:9 frame before publishing; do not let mixed dimensions reach the engine.
+- Never expose `.env` contents in command output. Exclude `.env` from `rg`, logs, and
+  final answers.
+- Local static servers may fail in the sandbox with `EPERM`, or a stale process may hold
+  a port. Retry on another port and verify with the browser, not just `lsof`.
+- Generations take minutes. Run long batches detached or resumable, save response JSON,
+  and poll progress; do not restart a successful paid job just because a later local
+  encode step failed.
 
 ---
 
@@ -79,8 +136,9 @@ default. Cover:
    industry/product + a one-line pitch (e.g. "a bubble tea company, from leaf to last
    sip"), and a brand name if they have one; otherwise you'll propose one below.
 2. **Brand kit** — offer three paths, pick one:
-   - Import from a URL: `higgsfield marketing-studio brand-kits fetch --url <site> --wait`
-     (pulls name, colours, tone). Then read it back with `brand-kits list --json`.
+   - Import from a URL by reading the site directly or using any available brand-kit
+     connector/tool in the current environment. Do not assume Higgsfield Marketing Studio
+     exists unless the user selected the Higgsfield provider.
    - The user hands you palette + name + tone directly.
    - You propose a palette + name and let them approve.
    Capture **4–6 named hex values**, a display name, and a tone word or two.
@@ -94,64 +152,27 @@ default. Cover:
    the hero product. Each section needs: a short subject description (what's IN the
    diorama), an eyebrow, a headline, one line of body, and 0–3 tag pills. The last
    section is usually the hero product + the CTA.
-5. **Mobile version — ALWAYS ask this; never silently generate both.** Ask as a
+5. **Mobile version (beta) — ALWAYS ask this; never silently generate both.** Ask as a
    two-option choice (`AskUserQuestion` in Claude Code; a plain question elsewhere):
-   *"Want a mobile-optimized version too? The mobile version is a second camera chain
-   rendered natively in **9:16 portrait** — composed for phones, not a crop of the
-   landscape film — which roughly doubles the Higgsfield credit spend (state the
-   estimated number)."*
-   Options: "Desktop only" / "Desktop + mobile (native 9:16 — ~2× credits)". The
-   credit cost must be stated to the user, not just implied.
-   What the answer gates:
-   - **Yes** → render the parallel 9:16 portrait chain and ship it as the mobile variants
-     (Step 6 / pipeline.md §6b): portrait start canvases → 9:16 dives + connectors
-     frame-locked against their own renders → 720-wide `-m.mp4` encodes → `stillMobile`
-     portrait posters. Wire `clipMobile`/`connectorsMobile`/`stillMobile` (Step 7); run
-     the full mobile QA (Step 8). Budget ~2N-1 extra video gens + NSFW re-rolls.
-     **Never ship the centre-crop as the mobile version by default** — if credits can't
-     cover the portrait chain, say so and offer the crop encodes (pipeline.md §6) as an
-     explicitly-labelled stopgap the user must approve.
+   *"Want a mobile-optimized version too? Mobile support is in
+   **beta** — the scroll-scrub mechanic is desktop-native; on phones you get lighter
+   encodes and engine hardening, but portrait crops the 16:9 frame and low-end devices
+   may still stutter."* Options: "Desktop only" / "Desktop + mobile (beta)". The beta
+   disclaimer must be stated to the user, not just implied. What the answer gates:
+   - **Yes** → produce the `-m.mp4` mobile encodes (Step 6) and wire
+     `clipMobile`/`connectorsMobile` (Step 7); run the full mobile QA (Step 8). If any
+     scene's focal subject sits off-centre, offer the 9:16 hero-variant escape hatch
+     (extra provider credits — say so).
    - **No** → skip the mobile encodes and wiring entirely. The engine's phone hardening
      (seek-coalescing, iOS priming, safe-area CSS) is always on regardless — that's not
      a "mobile version," it's just the page not breaking when a phone visits — so a
      desktop-only build still degrades gracefully.
 
-6. **Budget — engines shown by cost, decided before anything renders.** Present the
-   render tiers (`AskUserQuestion`), then compute and state the estimated total for
-   the user's N scenes — `N stills + (2N−1) videos [videos ×2 if mobile] + ~15%
-   re-roll headroom` — and get a go before generating.
-   - **Video tier** (roster only — every option frame-locks seams, Step 4):
-
-     | Tier | Model | Rough cost |
-     |---|---|---|
-     | Draft / previz | `seedance_2_0_mini` (720p) | ~¼ of Standard |
-     | Standard (default) | `seedance_2_0` (1080p) | baseline |
-     | Alternate | `kling3_0` (720p native) | ≈ Standard; different look + content filter |
-
-     Draft doubles as the previz path: run the whole chain cheap, approve the
-     journey, re-render final legs on Standard (pipeline.md Notes) — suggest it
-     unprompted when the balance reads tight.
-   - **Stills source** (only offer if the Codex CLI is present, Step 0.4):
-     Higgsfield `gpt_image_2` (spends credits) vs **Codex `image_gen`** — the same
-     gpt-image-2 model billed to the ChatGPT subscription (zero credits; counts
-     toward Codex usage limits; 1536×1024 output — exactly 3:2, slightly under
-     Higgsfield's 2k). Stills are plain PNGs handed to `--start-image`, so the
-     video chain is indifferent to their source. Command in Step 2. **One source
-     for all N stills of a build** — the two render with slightly different
-     character (verified: Codex runs warmer/lighter), and mixing sources across
-     scenes reads as style drift, same reason the video chain uses one model.
-   - **Calibrate costs, don't guess.** The CLI exposes no pricing and plans differ.
-     Run ONE still and ONE video first, diff `higgsfield workspace list` before/
-     after, extrapolate to the full run, and warn the user whenever the estimate
-     exceeds ~70% of the balance. (Observed on a plus plan, 2026-07: Standard
-     video ≈ 40–55 credits, still ≈ 15.) A real `not_enough_credits` mid-run is
-     recoverable (finished clips survive; resume after top-up) but ugly — the
-     whole point of this step is that the user decides *before* the spend.
-
-If the user names a video model outside the roster, honor it **only if it can
-frame-lock seams** (Step 4). This skill only ships seamless output, so a model that
-can't frame-lock is declined with a one-line why, not substituted in — use a roster
-model instead.
+Video provider is **not** a design interview question — default to the Step 0 provider
+stack unless the user names a preference. If they do, honor it **only if it can frame-lock
+seams**: every chained clip needs a start image, and architecture-B connectors also need
+an end image. This skill only ships seamless output, so a model that can't frame-lock is
+declined with a one-line why, not substituted in.
 
 Keep the scroll mechanic fixed (continuous fly-through) — that's the point of the skill.
 See `references/prompts.md` for the intake checklist and copy structure.
@@ -160,11 +181,11 @@ See `references/prompts.md` for the intake checklist and copy structure.
 
 ## Step 2 — Generate the scene stills
 
-One image per section, **all sharing the same style preamble** for cohesion. Default
-model **`gpt_image_2`** (crisp, great at isometric illustration; returns a solid/white
-background which is perfect for floating diorama "islands"). Use `nano_banana_2` only if
-the brief is character/cartoon-heavy (note: `nano_banana_2` is a CLI alias — it resolves
-to `nano_banana_pro`; it won't appear under that name in `higgsfield model list`).
+One image per section, **all sharing the same style preamble** for cohesion. Default to
+OpenAI image generation through the local `imagegen` skill/tool, using `gpt_image_2` when
+available. It is crisp, strong for illustration and concept art, and keeps first-run setup
+lighter than a separate image CLI. If the user selected a different image provider, keep
+the same prompt contract and still review cohesion before video.
 
 Prompt shape (full templates in `references/prompts.md`):
 
@@ -174,30 +195,17 @@ contact shadow. <PALETTE hexes>. No text, no letters, no logos, centered, 3:2.
 Subject: <what is in THIS diorama>.
 ```
 
-- Run all N concurrently, detached. Command per scene:
-  `higgsfield generate create gpt_image_2 --prompt "$(cat scene_i.txt)" --aspect_ratio 3:2 --resolution 2k --quality high --wait --wait-timeout 15m --json > scene_i.json 2>scene_i.err`
-- Result URL is `.[]0.result_url` in the `--wait --json` output. `curl` it down.
-- **Codex stills variant** (if chosen at Step 1.6 — subscription-billed, zero
-  credits): same prompt files, same byte-identical preamble, generated by Codex's
-  built-in `image_gen`:
-
-  ```bash
-  codex exec -C "$WORK" -s workspace-write --skip-git-repo-check \
-    'Use the image generation tool ($imagegen) to generate: '"$(cat "$WORK/still_i.txt")"' Wide 3:2 landscape, high resolution. Save it as ./still_i.png. Do not do anything else.'
-  ```
-
-  Single-quote the `$imagegen` segment (the shell must not expand it); if editing
-  with reference images, the prompt goes BEFORE any `-i` flag (it's variadic).
-  ~1–3 min per image; run a few in parallel, not all N at once. Output lands at
-  1536×1024 (3:2) — fine for `--start-image` and posters. Everything downstream
-  (cohesion review, knockout, dives) is unchanged.
-- A generation may fail transiently (HTTP 503) — re-roll that one individually; don't
-  restart the batch.
+- Generate all N stills, then save the approved PNGs locally. If using `imagegen`, copy
+  the returned file into the project under a stable path such as
+  `assets/generated/<world>/<scene>/still.png` and mirror site-ready posters under
+  `public/assets/stills/`.
+- A generation may fail transiently — re-roll that one individually; don't restart the
+  whole batch.
 - **Review the stills before continuing.** They must read as one cohesive world (same
   angle, palette, light). If one is off-style, regenerate it, optionally passing an
   approved scene as `--image` to lock style.
 
-See `references/pipeline.md` for the exact batch script.
+See `references/pipeline.md` for provider-specific scripts.
 
 ---
 
@@ -222,24 +230,19 @@ pick by aesthetic.
 
 **This skill only ships seamless output**, so the only usable models are ones that can
 frame-lock a seam: every chained clip must accept `--start-image`, and connectors also
-need `--end-image`. That capability — not preference — is the selection rule. Check any
-model with `higgsfield model get <job_type>` and **skip anything whose media inputs are
-reference-only** (no start/end image): it can only *condition* a generation, not
-*continue* a shot, so it physically can't hold a seam. Schemas below were confirmed
-against the CLI:
+need `--end-image`. That capability — not preference — is the selection rule. Check the
+provider schema before batching and **skip anything whose media inputs are reference-only**
+(no start/end image): it can only *condition* a generation, not *continue* a shot, so it
+physically can't hold a seam.
 
-| Model | start/end image | Notes |
+| Provider/model | start/end image | Notes |
 |---|---|---|
-| `seedance_2_0` (default) | ✓ / ✓ | Full chain (legs + connectors). `--mode std --resolution 1080p`. Its NSFW filter is the touchy one (see Gotchas). |
-| `kling3_0` | ✓ / ✓ | Full chain — tested: `--mode std --sound off --duration 5` with start+end images accepted, seams frame-lock cleanly. **No `--resolution` param** (don't pass one; `--mode std` returns **720p native** — encode what ffprobe reports, never upscale). Sound defaults **on** → `--sound off`. `--duration` default 5, try 10 for legs. Different content filter than Seedance — the sanctioned NSFW fallback. |
-| `seedance_2_0_mini` | ✓ / ✓ | Cheap draft tier that keeps frame-locking (720p). The previz tier: run the whole chain here first, then re-render final legs on the full model — still seamless, so it translates directly. |
+| fal.ai `fal-ai/kling-video/v3/standard/image-to-video` (default) | ✓ / ✓ | Full chain (legs + connectors). Tested through `@fal-ai/client`. Use `duration: "5"` for connectors; use one provider/model for every chained clip. Returned dimensions can be near-16:9, so normalize with ffmpeg. |
+| Higgsfield `kling3_0` (legacy) | ✓ / ✓ | Full chain. CLI flags: `--mode std --sound off`; no `--resolution` param. Encode whatever native size ffprobe reports, never upscale just for consistency. |
+| Higgsfield `seedance_2_0` / `seedance_2_0_mini` (legacy) | ✓ / ✓ | Full chain. `seedance_2_0_mini` is useful for previz. Its NSFW filter can be touchy; see Gotchas. |
 
-Those three are the roster — all do both architectures. (`kling3_0_turbo` also frame-locks
-via `--start-image`, but has no `--end-image`, so it's architecture-A-only and can't make
-connectors; it also takes a different flag set — no `--mode`, has `--resolution` — so it
-doesn't drop into the pipeline as-is. It's not in the default roster; only reach for it, and
-wire it by hand, if architecture A's sequential render time is a proven bottleneck and you've
-benchmarked it as actually faster.)
+Models with only `--start-image` or only reference images are architecture-A-only at best
+and cannot make connectors. Do not silently use them for architecture B.
 
 Rules:
 - **One model for all chained clips.** Each renderer has its own motion/color/grain
@@ -247,11 +250,11 @@ Rules:
   but the render-character shift reads as a subtle pop. The one sanctioned exception is
   the NSFW fallback for a single stubborn clip (Gotchas) — a slight character shift on
   one 5s connector beats a missing connector.
-- Default to `seedance_2_0`; honor a user's stated preference **only if the model
-  qualifies** (frame-locking). If it doesn't, say so and use a supported model — never
+- Default to fal.ai Kling V3 standard unless the user explicitly chose another qualified
+  provider. If the stated model does not qualify, say so and use a supported model — never
   ship a non-seamless build to satisfy a model request.
-- The pipeline scripts take the model as `$VMODEL` with per-model flags already cased
-  out (`references/pipeline.md`).
+- The pipeline scripts in `references/pipeline.md` show the fal-first path and note the
+  legacy Higgsfield mapping.
 
 ### A) Continuous forward take — RECOMMENDED for grounded / realistic / walkthrough
 One camera that only ever glides **forward**, first scene through last, as a single take.
@@ -321,8 +324,8 @@ must be consistent in both directions (a seam that reads fine forward reads as a
 backward too if velocity flips).
 
 **For B**, one camera flight per scene: starts high/outside, descends into the interior,
-structure opens. Model: the chain model you picked above (default **`seedance_2_0`**),
-`--start-image = the scene still`.
+structure opens. Model: the chain model you picked above (default fal.ai Kling V3
+standard), `start_image = the scene still`.
 
 - Use the **solid-background still** (not the knocked-out transparent one) as the
   start image, so the video has a full frame.
@@ -330,12 +333,13 @@ structure opens. Model: the chain model you picked above (default **`seedance_2_
   at the whole <scene> from outside … descend and fly inside toward <focal point> … the
   roof/walls gently open to reveal the interior. <style>, smooth graceful slow motion.
   No text." (Template in `references/prompts.md`.)
-- Params (seedance): `--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8`.
-  For Kling: drop `--resolution` (no such param), add `--sound off`, `--duration 10`.
-  Do **not** pass `--generate-audio` (it errors on seedance; audio is wasted anyway —
-  you'll mute).
-- Run concurrently, detached, then download each `.result_url`. Re-roll individual
-  failures. Keep the raw 1080p sources — you need their frames next.
+- Params are provider-specific. For fal.ai Kling V3 standard, submit an image-to-video
+  request with `start_image_url`, `prompt`, `duration`, and `generate_audio: false`. For
+  Higgsfield legacy Kling, drop `--resolution`, add `--sound off`, and set duration
+  explicitly.
+- Run concurrently or sequentially according to the architecture, then download the video
+  URL from the saved response JSON. Re-roll individual failures. Keep the raw sources —
+  you need their frames next.
 
 ---
 
@@ -350,7 +354,7 @@ flies from the end of scene i out and into the start of scene i+1. **Both of its
 endpoints must be the ACTUAL RENDERED FRAMES of the neighbouring clips — never the
 original diorama still.**
 
-Why: every Higgsfield generation renders slightly differently. If a connector *ends* on
+Why: every AI video generation renders slightly differently. If a connector *ends* on
 a fresh render of "the kitchen diorama," but the next dive clip *starts* on its own
 different render of that same diorama, the two won't match and you get a pop at the seam.
 The fix is to hand off the exact pixels:
@@ -371,9 +375,10 @@ ffmpeg -sseof -0.15 -i dive_i.mp4   -frames:v 1 -q:v 2 dive_i_last.png    # inte
 ffmpeg -ss 0      -i dive_{i+1}.mp4 -frames:v 1 -q:v 2 dive_next_first.png # establishing of i+1
 ```
 
-Generate the connector (`--duration 5` is plenty). Connectors need `--end-image`, so the
-model must accept it — any roster model does (`seedance_2_0`, `seedance_2_0_mini`,
-`kling3_0`):
+Generate the connector (`duration 5` is plenty). Connectors need an end image, so the
+model must accept it. For fal.ai Kling V3 standard, pass the actual extracted frame paths
+as uploaded file URLs / inputs and save the response JSON before downloading the video.
+For Higgsfield legacy:
 
 ```bash
 higgsfield generate create "$VMODEL" \
@@ -388,10 +393,11 @@ Connector prompt: "Single continuous camera move, no cuts. Pull up and back out 
 above <scene i+1>, beginning to descend toward it. Seamless flowing aerial transition.
 <style>. No text." (Template in `references/prompts.md`.)
 
-Insurance: Seedance lands *close* to the end-image but not always pixel-perfect, so the
-engine still applies a **short crossfade** (a few frames) at each seam. Frame-matched
-endpoints + a small crossfade = no visible cut. Never skip the actual-frame handoff and
-rely on the crossfade alone; a big content jump can't be hidden by a crossfade.
+Insurance: generated connectors may land *close* to the end-image but not always
+pixel-perfect, so the engine still applies a **short crossfade** (a few frames) at each
+seam. Frame-matched endpoints + a small crossfade = no visible cut. Never skip the
+actual-frame handoff and rely on the crossfade alone; a big content jump can't be hidden
+by a crossfade.
 
 ---
 
@@ -406,8 +412,8 @@ often gotten wrong:
    frozen. The robust fix is to **fetch each clip as a `Blob` and play it from an
    in-memory object URL** (blobs are always fully seekable). The engine does this.
    Because of it, you do **not** need all-intra video.
-2. **Don't shrink quality to get smooth seeks.** Encode at the **native resolution**
-   (1080p from Seedance — don't downscale), `crf ~20`, a **small GOP** (`-g 8`) rather
+2. **Don't shrink desktop quality to get smooth seeks.** Encode at the **native or
+   normalized resolution** (whatever the provider returns after 16:9 crop/pad), `crf ~20`, a **small GOP** (`-g 8`) rather
    than all-intra (all-intra bloats an 8s clip to ~25 MB; GOP 8 is ~8 MB and scrubs
    fine via blob). Strip audio, add faststart, and a light `unsharp` counters video
    softness:
@@ -420,17 +426,15 @@ ffmpeg -i src.mp4 -an -vf "unsharp=5:5:0.8:5:5:0.0" \
 
 Encode all 2N-1 clips (dives + connectors) with the same settings for uniform quality.
 
-**Mobile encodes (only if the user opted in at Step 1.5).** The mobile version is
-the **native 9:16 portrait chain** (pipeline.md §6b): portrait renders of every dive and
-connector, encoded **720 wide (`scale=720:-2`), `-g 4`** (more keyframes = cheaper seeks —
-phone decoders' seek cost scales with GOP length), crf 23 — wired as `clipMobile` /
-`connectorsMobile`, with each portrait dive's first frame extracted as the section's
-`stillMobile` poster (Step 7). The engine serves them automatically on phones and falls
-back to the desktop clip when absent. The 16:9 centre-crop `encm()` encodes
-(pipeline.md §6) are a **fallback only** — for when credits can't cover the portrait
-chain — and shipping them must be called out to the user, never silent. If the user chose
-desktop-only, skip this — the engine still hardens phone scrubbing regardless
-(seek-coalescing, iOS priming), so the page degrades gracefully rather than breaking.
+**Mobile encodes (beta — only if the user opted in at Step 1.5).** Phone video decoders seek
+far slower than a laptop's, and seek cost scales with GOP length, so the 1080p `-g 8` master
+that scrubs smoothly on desktop can stutter on a phone. Produce a lighter `-m.mp4` sibling for
+every clip — **720p, `-g 4`** (more keyframes = cheaper seeks), crf 23 — and wire them as
+`clipMobile` / `connectorsMobile` (Step 7). The engine serves them automatically on phones and
+falls back to the desktop clip when absent. The exact `encm()` script is in
+`references/pipeline.md` §6. If the user chose desktop-only, skip this — the engine still
+hardens phone scrubbing regardless (seek-coalescing, iOS priming), so the page degrades
+gracefully rather than breaking.
 
 ---
 
@@ -446,16 +450,14 @@ mountScrollWorld(document.getElementById('world'), {
   diveScroll: 1.3, connScroll: 0.9,          // viewport-heights of scroll per clip
   sections: [
     { id:'farm', label:'The Farms', still:'assets/farm.webp',
-      clip:'assets/vid/farm.mp4',
-      clipMobile:'assets/vid/farm-m.mp4',      // mobile opt-in only: native 9:16 render
-      stillMobile:'assets/farm-m.webp',        // its first frame as the portrait poster
+      clip:'assets/vid/farm.mp4', clipMobile:'assets/vid/farm-m.mp4',   // mobile beta only
       scroll: 1.6, linger: 0.45,   // optional pacing: longer dwell + camera settles mid-scene
       accent:'#8FB98A', eyebrow:'From leaf to last sip', title:'It starts in the hills.',
       body:'…', tags:['Single-origin','Hand-picked'] },
     // …one per section; last may carry a `cta`
   ],
   connectors:       ['assets/vid/conn1.mp4','assets/vid/conn2.mp4',   /* … length = sections-1 */],
-  connectorsMobile: ['assets/vid/conn1-m.mp4','assets/vid/conn2-m.mp4' /* … same length; mobile opt-in only */],
+  connectorsMobile: ['assets/vid/conn1-m.mp4','assets/vid/conn2-m.mp4' /* … same length; mobile beta only */],
 });
 ```
 
@@ -477,8 +479,8 @@ freezing the clip), **keeps the still as a poster until the clip paints its firs
 and **primes each video on first touch** (fixes iOS's blank-until-played video), drops the
 drifting particles, ignores URL-bar-only resizes (no scroll jump), and uses safe-area
 insets so copy clears the notch/home indicator. All of this hardening is on by default —
-no config needed. The `clipMobile`/`connectorsMobile` encodes are the opt-in part
-(Step 1.5): only wire them when the user asked for the mobile version.
+no config needed. The `clipMobile`/`connectorsMobile` encodes are the opt-in **mobile
+beta** part (Step 1.5): only wire them when the user asked for the mobile version.
 
 For non-JS backends (Python/Rails/etc.): serve the assets and drop the engine `<script>`
 into the rendered HTML; nothing about it is framework-specific.
@@ -496,30 +498,58 @@ is the thing most likely to be wrong:
   the crossfade band is too short.
 - Check the console for errors, confirm `video.seekable.end(0) > 0` (blob working), and
   that `currentTime` tracks scroll across each clip's band.
-- **Mobile — full checklist only if the user opted into the mobile version (Step 1.5).**
+- **Mobile — full checklist only if the user opted into the mobile beta (Step 1.5).**
   For a desktop-only build, just sanity-check a phone viewport once: page loads, still
   posters show, nothing overlaps — the engine's hardening covers graceful degradation.
-  For the mobile build (do this on a real phone or an emulated one, portrait + landscape):
+  For the beta (do this on a real phone or an emulated one, portrait + landscape):
   - Emulate a phone viewport **with CPU throttled 4–6×** and scroll fast — the clip should
     track without freezing (the seek-coalescing + `-m.mp4` encodes are what make this hold).
   - Confirm the first scene shows immediately (its still is the poster) and the video takes
     over the instant you scroll — no blank/black scene (the iOS priming fix). Test iOS Safari
     specifically; it's the one that goes blank if this regresses.
   - Verify the `-m.mp4` variant is actually served on mobile (Network panel), and the
-    heavy 1080p master on desktop. The mobile clips must be **natively portrait**
-    (`videoWidth < videoHeight` — not a downscaled 16:9 file), and the `stillMobile`
-    posters must be served and match each portrait clip's first frame (no
-    landscape→portrait flash when the video paints).
+    heavy 1080p master on desktop.
   - Slowly scroll so the URL bar collapses — the page must **not jump** (height-only resizes
     are ignored on touch). Rotate the device — layout should recompose cleanly.
-  - Only if the crop **fallback** shipped (no credits for the portrait chain): portrait
-    crops a 16:9 clip to its centre — confirm the focal subject still reads, and remind
-    the user this is the stopgap, not the mobile version.
+  - Portrait crops a 16:9 clip to its centre; confirm the focal subject still reads. If a
+    hero scene's subject sits off-centre and gets cut, recompose it (prompts.md) or generate
+    a 9:16 variant for that scene.
 - Check reduced-motion (should fall back to the stills, no video, no particles).
 
 ---
 
 ## Gotchas (hard-won)
+
+- **Wrong provider assumption** → older versions of this skill assumed Higgsfield for both
+  images and videos. The current default is OpenAI imagegen for stills and fal.ai for
+  frame-locked video. Before generating, write down the provider stack and verify auth.
+- **fal result downloaded as empty / missing URL** → `@fal-ai/client` may return the video
+  under `result.data.video.url`, not `result.video.url`. Scripts must check both shapes
+  and save `<job>.response.json` before downloading, so a downloader/encode failure can
+  resume without spending credits again.
+- **`.env` key leaked in logs** → never print `.env`, never run broad `rg FAL_KEY` without
+  excluding `.env`, and never include the key in final answers. Support both `FAL_KEY=...`
+  and `export FAL_KEY=...` when loading locally.
+- **fal Kling V3 near-16:9 output** → clips can return as `1280x716` or other near-16:9
+  sizes. Normalize every raw clip to a consistent 16:9 output with ffmpeg crop/pad before
+  QA or the browser will crossfade mismatched frame sizes.
+- **First still aspect leaking into video** → if the first scene still is 3:2, some
+  image-to-video providers preserve more of that framing than expected. Center-crop/pad
+  masters to 16:9 and regenerate posters from the encoded frame, not from the original
+  still alone.
+- **Connector scroll accidentally disabled** → `connScroll: 0` makes the page look like
+  simple scene switching even when connector clips exist. Keep a non-zero connector band
+  (for example `0.6–0.9`) and verify by scrolling into a connector and checking the
+  connector video's `currentTime`.
+- **Local server false start** → in sandboxed environments, binding a port can fail with
+  `EPERM`, or a stale Node process can occupy a port while not serving. Try another port,
+  verify with a browser load, and do not treat `lsof LISTEN` alone as proof the site works.
+- **Browser QA selector drift** → the engine owns its DOM class names. If a DOM selector
+  returns zero items, inspect a DOM snapshot before concluding content is missing.
+- **Mobile source hard to inspect after blob conversion** → after the engine fetches videos
+  into blob URLs, DOM `src` no longer reveals `-m.mp4`. Confirm mobile wiring in the page
+  config and verify runtime behavior by checking viewport size, no horizontal overflow,
+  `seekable.end(0) > 0`, and connector `currentTime` while scrolling.
 
 - **Seam pop** → connector endpoints were the diorama stills, not the neighbouring
   clips' actual frames. Always extract real frames (Step 5).
@@ -531,12 +561,12 @@ is the thing most likely to be wrong:
 - **Frozen video / stuck at frame 0** → `seekable=[0,0]`; the host isn't serving byte
   ranges. Use blob URLs (engine does).
 - **Huge files** → you used all-intra. Use `-g 8` + blob instead.
-- **Soft / low quality** → you downscaled or over-compressed. Encode native 1080p,
-  crf ≤ 20, add `unsharp`. Video is inherently softer than the stills — keep the stills
-  as the lite fallback for max fidelity.
-- **Concurrent gens 503 / "not_enough_credits" race** → transient when many launch at
-  once; re-roll the individual failure, it's not really out of credits (verify with
-  `higgsfield workspace list`).
+- **Soft / low quality** → you downscaled or over-compressed. Encode at the provider's
+  native or normalized resolution, crf ≤ 20, and add `unsharp`. Video is inherently
+  softer than the stills — keep the stills as the lite fallback for max fidelity.
+- **Concurrent gens / credit race** → transient failures can happen when many jobs launch
+  at once. Re-roll the individual failure and check provider billing/credits before
+  restarting a whole batch.
 - **NSFW false-positives (Seedance `status "nsfw"`)** → the video content filter flags
   perfectly innocuous clips, especially **bedroom, pool, spa/wellness** contexts and
   trigger words like "bed", "pool", "waterfall", "wine", "swim". It's partly the prompt
@@ -569,11 +599,10 @@ is the thing most likely to be wrong:
 - **Copy hidden behind the URL bar / notch on mobile** → use the engine's safe-area-aware
   bottom offset (`env(safe-area-inset-bottom)` + `dvh`); make sure the page's
   `<meta viewport>` includes `viewport-fit=cover` (the template does).
-- **Portrait crops the scene** → a 16:9 clip on a tall phone shows only its centre — which
-  is why the mobile version is the native 9:16 chain (§6b), never the crop. If you're seeing
-  this on a mobile build, either the crop fallback shipped (call it out to the user) or the
-  9:16 encodes aren't actually being served (check `videoWidth < videoHeight`). Keeping each
-  scene's focal subject centred (prompts.md) still matters for the desktop film itself.
+- **Portrait crops the scene** → a 16:9 clip on a tall phone shows only its centre. Keep each
+  scene's focal subject centred with a little headroom (prompts.md), or generate a 9:16 hero
+  for the scenes that matter most. The engine centre-crops (`object-fit:cover`); it can't
+  un-crop a widescreen composition.
 - **`--generate-audio` errors on seedance** → omit it; mute in HTML and `-an` on encode.
 - **Kling rejects your flags** → `kling3_0` has **no `--resolution` param** (don't pass
   one; encode at whatever native res ffprobe reports) and **sound defaults on** — pass
@@ -585,10 +614,6 @@ is the thing most likely to be wrong:
 - **White-box scenes** → `gpt_image_2` returns a solid bg; either match the page bg to it
   or knock it out (Step 3).
 - **bash 3.2** on macOS → no associative arrays in scripts.
-- **Connector grabs the wrong scene's frames** (or errors on a frame that doesn't exist
-  yet) → the array loop ran in **zsh** (macOS default interactive shell), where arrays are
-  1-indexed, not bash's 0-indexed. Keep every array-driven chain step in a `#!/bin/bash`
-  script run via `bash script.sh` — never inline array loops in the interactive shell.
 
 ## References
 

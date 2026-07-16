@@ -13,15 +13,10 @@ Collect and write down:
 - `TONE` — a word or two (cozy/premium, playful, industrial…).
 - `STYLE` — the art direction (default below).
 - `SECTIONS[]` — ordered list; for each: `id`, `label`, `subject` (what's in the diorama), `eyebrow`, `title`, `body` (≤ 1 sentence), `tags[]` (0–3). Last section = hero product + CTA.
-- `MOBILE` — yes/no. **Always asked** (SKILL Step 1.5), presented to the user
-  with the ~2× credit cost stated.
-- `VIDEO_TIER` — draft (`seedance_2_0_mini`) | standard (`seedance_2_0`, default) |
-  alternate (`kling3_0`). Chosen by cost at SKILL Step 1.6, with the calibrated
-  total estimate stated before anything renders.
-- `STILLS_SOURCE` — higgsfield (`gpt_image_2`, spends credits) | codex
-  (`image_gen`, subscription-billed; only offer when the Codex CLI is present). Yes = the **native 9:16 portrait chain** (pipeline §6b):
-  portrait renders of every dive/connector + `clipMobile`/`connectorsMobile`/`stillMobile`
-  wiring + the full mobile QA. The §6 crop encodes are a no-credits stopgap only.
+- `MOBILE` — yes/no. **Always asked** (SKILL Step 1.5), presented to the user as **beta**. Gates the `-m.mp4` encodes (pipeline §6) + `clipMobile`/`connectorsMobile` wiring + the full mobile QA.
+- `PROVIDERS` — default `imagegen:gpt_image_2` for stills and
+  `fal-ai/kling-video/v3/standard/image-to-video` for video. If the user chooses a
+  different video provider, confirm start-image and end-image support before accepting it.
 
 ## Style preamble (default: clay diorama)
 
@@ -55,19 +50,20 @@ Tips:
 - For the final "hero product" section, drop the diorama-island framing and prompt a
   single oversized product centerpiece floating on the same background with a few small
   orbiting props.
-- **Compose for the centre.** The page renders every clip `object-fit:cover`. Keep the
-  focal subject horizontally centred with a little headroom, and don't park anything
-  essential at the far left/right edges. Mobile ships its own native 9:16 chain
-  (pipeline §6b), so this is not about surviving a crop — but a centred composition makes
-  the portrait renders open cleanly from the same still, and it keeps the dive's focal
-  point where the camera actually flies.
-- Aspect `3:2`, `--resolution 2k --quality high`.
+- **Compose for the centre.** The page renders every clip `object-fit:cover`, and a portrait
+  phone crops a 16:9 frame to roughly its centre half. Keep the focal subject horizontally
+  centred with a little headroom, and don't park anything essential at the far left/right
+  edges — it will be cut off on phones. This also keeps the dive's focal point (which the
+  camera flies toward) inside the mobile crop. For a scene that absolutely must show its full
+  width on mobile, generate a separate 9:16 variant for it.
+- Target a high-resolution still around `3:2` unless the visual direction requires a
+  different source frame. The published video/poster will be normalized to 16:9 later.
 
 ## Leg prompt — architecture A, continuous forward take (Step 4)
 
-`--start-image = previous leg's ACTUAL last frame` (leg 0: the first scene's still).
-**No `--end-image`.** The bolded clauses are the motion-handoff contract — keep them
-verbatim; the mid-leg move is where the expression goes.
+Start image = previous leg's ACTUAL last frame (leg 0: the first scene's still).
+Do **not** use an end image for architecture A. The bolded clauses are the motion-handoff
+contract — keep them verbatim; the mid-leg move is where the expression goes.
 
 ```
 Single continuous cinematic camera move, no cuts. **Continue the same slow, steady
@@ -99,7 +95,7 @@ orbit). If it doesn't, re-roll this leg — a bad handoff frame poisons every le
 
 ## Dive-in clip prompt (Step 4)
 
-`--start-image = the scene still` (solid-bg version).
+Start image = the scene still (solid-bg version).
 
 ```
 Single continuous cinematic camera move, no cuts. Begin high and far, looking down at the
@@ -114,15 +110,21 @@ subtle parallax. No text, no captions.
 For scenes with no building to open (a field, a plaza, a road), replace the roof clause
 with "the camera flies low across [the scene] toward [focal point]."
 
-Params by chain model (SKILL Step 4 table): seedance —
-`--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8`, no audio flag;
-kling3_0 — `--mode std --sound off --aspect_ratio 16:9 --duration 10` (no `--resolution`
-param). Same for architecture-A legs.
+Provider params:
+
+- fal.ai Kling V3 standard: send `prompt`, `start_image_url`, `duration`, and
+  `generate_audio: false`; pass the local still/frame as a Blob and save the response JSON.
+- Higgsfield legacy seedance: `--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8`.
+- Higgsfield legacy `kling3_0`: `--mode std --sound off --aspect_ratio 16:9 --duration 10`
+  with no `--resolution` param.
+
+Use the same provider/model for architecture-A legs unless a single failed clip requires
+an explicit fallback.
 
 ## Connector clip prompt (Step 5)
 
-`--start-image = dive_i LAST frame` (extracted), `--end-image = dive_{i+1} FIRST frame`
-(extracted). Both from the RENDERED videos, not the stills.
+Start image = dive_i LAST frame (extracted), end image = dive_{i+1} FIRST frame
+(extracted). Both must come from the RENDERED videos, not the stills.
 
 ```
 Single continuous cinematic camera move, no cuts. The camera smoothly pulls up and back
@@ -136,9 +138,11 @@ For the last connector into a hero-product finale: "…glides forward and the wo
 dissolves toward a single giant [PRODUCT] floating in soft [BG] space, arriving in front
 of it."
 
-seedance: `--mode std --resolution 1080p --aspect_ratio 16:9 --duration 5`; kling3_0:
-`--mode std --sound off --aspect_ratio 16:9 --duration 5`. Connectors need `--end-image`
-→ use a roster model that accepts it (Step 4).
+fal.ai Kling V3 standard: upload both extracted endpoint frames and submit them as the
+start/end image inputs for a 5 second connector. Higgsfield legacy seedance:
+`--mode std --resolution 1080p --aspect_ratio 16:9 --duration 5`; Higgsfield legacy
+`kling3_0`: `--mode std --sound off --aspect_ratio 16:9 --duration 5`. Connectors need an
+end image, so use only a model that accepts it.
 
 ## Copy per section (for the engine config)
 

@@ -15,7 +15,7 @@ logistics site, applied to whatever you want).
 ### Claude Code — as a plugin (recommended)
 
 ```
-/plugin marketplace add oso95/scroll-world
+/plugin marketplace add Tomalin18/scroll-world
 /plugin install scroll-world@scroll-world
 ```
 
@@ -27,8 +27,8 @@ Using [Vercel's skills CLI](https://github.com/vercel-labs/skills), which instal
 Codex, Claude Code, Cursor, and 20+ other agents:
 
 ```bash
-npx skills add oso95/scroll-world            # pick your agent(s) when prompted
-npx skills add oso95/scroll-world -a codex   # or target Codex directly
+npx skills add Tomalin18/scroll-world            # pick your agent(s) when prompted
+npx skills add Tomalin18/scroll-world -a codex   # or target Codex directly
 ```
 
 In Codex, invoke it with `$scroll-world` (or `/skills` to browse), or just ask for a
@@ -39,48 +39,78 @@ scroll-through world landing page.
 Copy the skill folder into your agent's skills directory:
 
 ```bash
-git clone https://github.com/oso95/scroll-world
+git clone https://github.com/Tomalin18/scroll-world
 cp -R scroll-world/skills/scroll-world ~/.claude/skills/   # Claude Code
 cp -R scroll-world/skills/scroll-world ~/.codex/skills/    # Codex
 ```
 
 ## Requirements
 
-- The [Higgsfield CLI](https://higgsfield.ai), authenticated (`higgsfield auth login`),
-  with credits.
-- `ffmpeg` / `ffprobe` for frame extraction and encoding.
-- Python 3 with Pillow (for the mobile portrait canvases; also the optional
-  transparent-scene knockout).
-- The [Codex CLI](https://github.com/openai/codex) (optional) — if present, the scene
-  stills can be generated through Codex's built-in `image_gen` (the same GPT Image
-  model), billed to a ChatGPT subscription instead of Higgsfield credits.
+- OpenAI image generation through your agent's image tool, such as Codex `$imagegen`
+  with `gpt_image_2`, for the scene stills.
+- A fal.ai API key in `.env` for frame-locking image-to-video generation:
+
+  ```bash
+  FAL_KEY=...
+  # or
+  export FAL_KEY=...
+  ```
+
+- Node.js and npm, with `@fal-ai/client` installed in the project that will run
+  generation scripts:
+
+  ```bash
+  npm init -y
+  npm install @fal-ai/client
+  ```
+
+- `ffmpeg` / `ffprobe` for frame extraction, normalization, encoding, and QA.
+- `jq` for shell-side JSON checks when using the reference scripts.
+- Optional: Python 3 with Pillow or `cwebp`/`sips` for transparent-scene knockout and
+  image conversion.
+- Optional legacy provider: the [Higgsfield CLI](https://higgsfield.ai), authenticated
+  with `higgsfield auth login`, only if you explicitly choose Higgsfield instead of the
+  default fal.ai flow.
 
 ## What it does
 
-It leans on [Higgsfield](https://higgsfield.ai) for the art: cohesive isometric diorama
-scenes (GPT Image 2 — via Higgsfield, or the Codex CLI on a ChatGPT subscription) and the
-camera flights themselves (Seedance or Kling image-to-video — only models that can
-frame-lock a seam), scrubbed
-by scroll position — the same technique behind Apple's scroll-through product pages. The
-camera genuinely moves; scroll only drives time. It's **framework-agnostic**: you get the
-Higgsfield pipeline, the prompt templates, and a portable vanilla-JS scrub engine that
+It leans on OpenAI image generation for cohesive stills and fal.ai Kling V3 standard for
+frame-locking image-to-video clips. The page then scrubs those pre-rendered clips by
+scroll position — the same technique behind Apple's scroll-through product pages. The
+camera genuinely moves; scroll only drives time. It's **framework-agnostic**: you get a
+provider-aware pipeline, prompt templates, and a portable vanilla-JS scrub engine that
 drops into plain HTML, Next.js, Vue, or a Python-served page — nothing assumes a stack.
 
 When invoked, the skill:
 
 1. **Interviews you** — the subject/industry + pitch, a brand kit (import from a URL, hand
    it over, or have it proposed), art direction, the ordered scenes the camera visits,
-   whether you want the **mobile version** (a second chain rendered natively in 9:16
-   portrait — composed for phones, not a crop of the landscape film), and the **budget** —
-   render tiers and stills source shown with estimated credit costs, approved before
-   anything generates.
+   and whether you want the **mobile beta**. Mobile uses lighter 720p encodes and engine
+   hardening; portrait phones still crop the 16:9 frame, so compositions must keep the
+   subject centered.
 2. **Generates the assets** — one still per scene, one "dive-in" camera
    clip per scene, and the **connector** clips that join consecutive scenes, generated
    from the actual rendered frames of their neighbours so every seam is frame-identical.
-   Mobile opt-in renders a parallel portrait chain the same way, frame-locked against its
-   own 9:16 renders.
+   The default video provider is fal.ai `fal-ai/kling-video/v3/standard/image-to-video`;
+   legacy Higgsfield support remains documented for users who choose it.
 3. **Wires it up** — a config-driven scroll engine that plays the whole chain as one
-   flight, serving the portrait clips and posters automatically on phones.
+   flight, serving mobile encodes automatically on phones when they exist.
+
+## First-run checklist
+
+Before spending provider credits, the skill now checks:
+
+```bash
+node -v
+npm -v
+ffmpeg -version
+ffprobe -version
+jq --version
+```
+
+It also verifies `.env` without printing secrets, confirms `FAL_KEY` is present, and
+saves every fal response JSON before download so local download or encode failures can
+resume without re-rendering paid jobs.
 
 ## What's in the skill
 
@@ -88,8 +118,8 @@ When invoked, the skill:
 skills/scroll-world/
 ├── SKILL.md                    the procedure + the seam rule + gotchas
 └── references/
-    ├── prompts.md              intake checklist + every Higgsfield prompt template
-    ├── pipeline.md             copy-paste batch scripts (generate → frames → connectors → encode)
+    ├── prompts.md              intake checklist + provider-aware prompt templates
+    ├── pipeline.md             fal.ai-first runbook (generate → frames → connectors → encode)
     ├── scrub-engine.js         portable, config-driven scrub engine (blob-seek, lazy load, seam crossfade)
     ├── index-template.html     a minimal standalone page that mounts the engine
     └── knockout.py             background knockout for floating scenes
@@ -97,12 +127,13 @@ skills/scroll-world/
 
 ## Notes
 
-- Asset generation costs Higgsfield credits (~N image gens + ~2N-1 video gens for N
-  scenes; the mobile chain doubles the video gens) and takes a while — the skill runs
-  generations in the background and polls. Per-generation pricing isn't exposed by the
-  CLI, so the skill calibrates against your live balance and states the estimated total
-  before spending.
+- Asset generation costs provider credits. A full architecture-B run is roughly `N` stills,
+  `N` scene videos, and `N-1` connector videos. Mobile beta reuses the same raw videos and
+  creates lighter `-m.mp4` encodes instead of generating a separate portrait chain.
 - The generated `.mp4`/`.webp` assets are produced per project; they're not shipped here.
+- Known failure cases are documented in `SKILL.md`: fal response shape differences,
+  `.env` key leakage, near-16:9 Kling output such as `1280x716`, stale local ports,
+  disabled connector scroll bands, and browser QA selector drift.
 
 ## Star History
 
