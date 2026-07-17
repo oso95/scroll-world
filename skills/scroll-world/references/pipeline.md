@@ -1,4 +1,8 @@
-# Pipeline: copy-paste scripts (bash 3.2 safe)
+# Pipeline: Higgsfield copy-paste scripts (bash 3.2 safe)
+
+This file is the Higgsfield provider path. For fal.ai, use `fal-ai.md` plus
+`fal_pipeline.py`; the downstream frame extraction, encoding, page assembly, and QA
+contract is the same.
 
 Set these once. `NAMES` is the ordered section ids; the last is the hero/finale.
 

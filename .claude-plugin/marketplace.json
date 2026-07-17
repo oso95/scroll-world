@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "scroll-world",
-  "description": "Immersive scroll-scrubbed 'fly through the world' landing pages, generated with Higgsfield.",
+  "description": "Immersive scroll-scrubbed 'fly through the world' landing pages, generated with Higgsfield or fal.ai.",
   "owner": {
     "name": "cyw",
     "email": "cyw@cywang.me"
@@ -11,7 +11,7 @@
       "name": "scroll-world",
       "source": "./",
       "skills": ["./skills/scroll-world"],
-      "description": "Build an immersive scroll-scrubbed landing page where a pre-rendered camera flies from outside each scene into its interior, then flows on to the next with no cuts. Interviews the user for topic, story beats, and brand kit; generates cohesive scenes + seamless camera clips with Higgsfield; wires a portable, framework-agnostic scrub engine.",
+      "description": "Build an immersive scroll-scrubbed landing page where a pre-rendered camera flies from outside each scene into its interior, then flows on to the next with no cuts. Interviews the user for topic, story beats, brand kit, mobile needs, and budget; generates cohesive scenes + seamless camera clips with Higgsfield or fal.ai; wires a portable, framework-agnostic scrub engine.",
       "category": "design"
     }
   ]
