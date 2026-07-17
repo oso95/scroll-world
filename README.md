@@ -46,8 +46,8 @@ cp -R scroll-world/skills/scroll-world ~/.codex/skills/    # Codex
 
 ## Requirements
 
-- The [Higgsfield CLI](https://higgsfield.ai), authenticated (`higgsfield auth login`),
-  with credits.
+- Either the [Higgsfield CLI](https://higgsfield.ai), authenticated (`higgsfield auth login`),
+  with credits, **or** fal.ai (`python3 -m pip install fal-client requests` + `FAL_KEY`).
 - `ffmpeg` / `ffprobe` for frame extraction and encoding.
 - Python 3 with Pillow (for the mobile portrait canvases; also the optional
   transparent-scene knockout).
@@ -57,13 +57,13 @@ cp -R scroll-world/skills/scroll-world ~/.codex/skills/    # Codex
 
 ## What it does
 
-It leans on [Higgsfield](https://higgsfield.ai) for the art: cohesive isometric diorama
-scenes (GPT Image 2 — via Higgsfield, or the Codex CLI on a ChatGPT subscription) and the
+It leans on [Higgsfield](https://higgsfield.ai) by default (or fal.ai via the included adapter) for the art: cohesive isometric diorama
+scenes (GPT Image 2 — via Higgsfield, fal.ai, or the Codex CLI on a ChatGPT subscription) and the
 camera flights themselves (Seedance or Kling image-to-video — only models that can
 frame-lock a seam), scrubbed
 by scroll position — the same technique behind Apple's scroll-through product pages. The
 camera genuinely moves; scroll only drives time. It's **framework-agnostic**: you get the
-Higgsfield pipeline, the prompt templates, and a portable vanilla-JS scrub engine that
+provider pipeline, the prompt templates, and a portable vanilla-JS scrub engine that
 drops into plain HTML, Next.js, Vue, or a Python-served page — nothing assumes a stack.
 
 When invoked, the skill:
@@ -74,7 +74,7 @@ When invoked, the skill:
    portrait — composed for phones, not a crop of the landscape film), and the **budget** —
    render tiers and stills source shown with estimated credit costs, approved before
    anything generates.
-2. **Generates the assets** — one still per scene, one "dive-in" camera
+2. **Generates the assets** with Higgsfield/fal.ai — one still per scene, one "dive-in" camera
    clip per scene, and the **connector** clips that join consecutive scenes, generated
    from the actual rendered frames of their neighbours so every seam is frame-identical.
    Mobile opt-in renders a parallel portrait chain the same way, frame-locked against its
@@ -82,14 +82,29 @@ When invoked, the skill:
 3. **Wires it up** — a config-driven scroll engine that plays the whole chain as one
    flight, serving the portrait clips and posters automatically on phones.
 
+### The part that makes it good
+
+The scenes connect **seamlessly** because each connector clip is generated with the
+*actual rendered frames* of its neighbours as its start/end images (not the original
+stills — those re-render slightly differently and would pop at the seam). Both sides of
+every seam end up frame-identical, so the camera never cuts. This is baked into the skill
+as the central rule.
+
+It also captures the non-obvious production gotchas: blob-URL loading so scrubbing works on
+hosts that don't serve HTTP byte-range requests, GOP/encoding settings that stay sharp
+without bloating, mobile-native portrait chains, budget approval before spending credits,
+and provider quirks.
+
 ## What's in the skill
 
 ```
 skills/scroll-world/
 ├── SKILL.md                    the procedure + the seam rule + gotchas
 └── references/
-    ├── prompts.md              intake checklist + every Higgsfield prompt template
-    ├── pipeline.md             copy-paste batch scripts (generate → frames → connectors → encode)
+    ├── prompts.md              intake checklist + prompt templates
+    ├── pipeline.md             Higgsfield copy-paste batch scripts (generate → frames → connectors → encode)
+    ├── fal-ai.md               fal.ai provider notes + copy-paste commands
+    ├── fal_pipeline.py         small fal-client adapter (upload → generate → download)
     ├── scrub-engine.js         portable, config-driven scrub engine (blob-seek, lazy load, seam crossfade)
     ├── index-template.html     a minimal standalone page that mounts the engine
     └── knockout.py             background knockout for floating scenes
@@ -97,11 +112,11 @@ skills/scroll-world/
 
 ## Notes
 
-- Asset generation costs Higgsfield credits (~N image gens + ~2N-1 video gens for N
+- Asset generation costs provider credits (Higgsfield/fal.ai; ~N image gens + ~2N-1 video gens for N
   scenes; the mobile chain doubles the video gens) and takes a while — the skill runs
-  generations in the background and polls. Per-generation pricing isn't exposed by the
-  CLI, so the skill calibrates against your live balance and states the estimated total
-  before spending.
+  generations in the background and polls. Per-generation pricing can vary by provider/model,
+  so the skill calibrates against your live balance where possible and states the estimated
+  total before spending.
 - The generated `.mp4`/`.webp` assets are produced per project; they're not shipped here.
 
 ## Star History

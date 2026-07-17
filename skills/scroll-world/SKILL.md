@@ -2,12 +2,12 @@
 name: scroll-world
 description: >
   Build an immersive scroll-scrubbed "fly through the world" landing page for any
-  industry or brand using Higgsfield. As the visitor scrolls, a pre-rendered camera
+  industry or brand using Higgsfield or fal.ai. As the visitor scrolls, a pre-rendered camera
   flies from outside each scene into its interior, then flows on to the next scene
   with NO cuts — one continuous connected flight (Emons-style isometric diorama world,
   or any art direction you pick). The skill interviews the user for the topic, the
   story beats/sections, and brand kit, then generates cohesive scenes + seamless camera
-  clips with Higgsfield and wires a portable, framework-agnostic scroll-scrub engine.
+  clips with Higgsfield/fal.ai and wires a portable, framework-agnostic scroll-scrub engine.
   Use when the user wants a "3D world" / "browse-through-the-industry" hero, a scroll
   cinematic, a diorama landing, or to turn a business into a scrollable world.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
@@ -17,7 +17,8 @@ allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
 
 Produces a landing page where **scroll drives a camera**: it dives from outside a scene
 into its interior, then flies out and into the next scene, continuously, with no visible
-cuts. The visuals are AI-generated (Higgsfield); the page just scrubs pre-rendered video
+cuts. The visuals are AI-generated (Higgsfield by default, or fal.ai via the adapter in
+`references/fal-ai.md`); the page just scrubs pre-rendered video
 by scroll position. This is the same technique behind Apple's scroll-through product
 pages — the camera genuinely moves, scroll only drives time.
 
@@ -30,23 +31,29 @@ chain as one flight.
 connector. Getting this wrong is the single most common failure and produces a visible
 "pop" between scenes.
 
-Do not assume a frontend framework. The scrub engine in `references/scrub-engine.js` is
+Do not assume a frontend framework or a generation provider. The scrub engine in `references/scrub-engine.js` is
 self-contained vanilla JS (it builds its own DOM + injects its own CSS into a container
 you give it), so it drops into plain HTML, Next.js, Vue, a Python-served page, anything.
-The value of this skill is the Higgsfield pipeline, the prompts, and the seam method —
-not the framework.
+The value of this skill is the provider pipeline, the prompts, and the seam method —
+not the framework. Higgsfield remains the default documented path; fal.ai support is the
+same asset contract through a small Python helper.
 
 ---
 
 ## Step 0 — Bootstrap
 
-1. **Higgsfield CLI.** If `higgsfield` is not on `$PATH`, install per the
+1. **Choose a generation provider.** Default to Higgsfield unless the user asks for fal.ai
+   or Higgsfield is unavailable. For fal.ai, use `references/fal-ai.md` and
+   `references/fal_pipeline.py` (`python3 -m pip install fal-client requests`; `FAL_KEY`
+   must be set). The page/engine output is identical either way: local `.webp` stills and
+   local encoded `.mp4` clips.
+2. **Higgsfield CLI.** If using Higgsfield and `higgsfield` is not on `$PATH`, install per the
    `higgsfield-generate` skill. If `higgsfield workspace list` fails auth, ask the user
    to run `higgsfield auth login` (interactive OAuth — you cannot run it) and, if needed,
    `higgsfield workspace set <id>`. Confirm there are enough credits: a full run is
    roughly `N` image gens + `(2N-1)` video gens.
-2. **ffmpeg / ffprobe** on `$PATH` (frame extraction + encoding).
-3. **An image tool** for background knockout if you want floating scenes: PIL
+3. **ffmpeg / ffprobe** on `$PATH` (frame extraction + encoding).
+4. **An image tool** for background knockout if you want floating scenes: PIL
    (`python3 -c "import PIL"`), or `cwebp`/`sips`. Optional — see Step 3.
 4. **(Optional) Codex CLI** — if `codex` is on `$PATH` (≥ 0.125) and
    `codex login status` reports a ChatGPT login, the scene stills can be generated
@@ -197,7 +204,10 @@ Subject: <what is in THIS diorama>.
   angle, palette, light). If one is off-style, regenerate it, optionally passing an
   approved scene as `--image` to lock style.
 
-See `references/pipeline.md` for the exact batch script.
+For Higgsfield, see `references/pipeline.md` for the exact batch script. For fal.ai, use
+`references/fal-ai.md` §Scene stills; the default still endpoint there is
+`fal-ai/flux-pro/v1.1-ultra`, but any fal text-to-image model that supports the needed
+aspect/image size can be swapped in.
 
 ---
 
@@ -241,6 +251,22 @@ doesn't drop into the pipeline as-is. It's not in the default roster; only reach
 wire it by hand, if architecture A's sequential render time is a proven bottleneck and you've
 benchmarked it as actually faster.)
 
+
+**fal.ai equivalents.** If the provider is fal.ai, keep the same selection rule but map the
+inputs to fal field names: start image = `image_url`, connector end image = `end_image_url`
+(or `tail_image_url` for endpoints whose current schema uses that name). The documented
+fal path in `references/fal-ai.md` uses:
+
+| fal endpoint | start/end image | Notes |
+|---|---|---|
+| `fal-ai/bytedance/seedance/v1/pro/image-to-video` | ✓ / ✓ | Default fal video path; docs expose `image_url`, `end_image_url`, `aspect_ratio`, `resolution`, `duration`. |
+| `fal-ai/bytedance/seedance/v1/lite/image-to-video` | ✓ / ✓ | Draft/previz candidate; verify seams before final. |
+| `fal-ai/kling-video/v2.1/pro/image-to-video` | ✓ / schema-dependent end field | Fallback when Seedance fails; check whether the docs require `end_image_url` or `tail_image_url`. |
+
+Before batching fal jobs, confirm the live endpoint schema. If a model only accepts
+reference images (no true start/end frame fields), skip it; it cannot preserve seams.
+
+
 Rules:
 - **One model for all chained clips.** Each renderer has its own motion/color/grain
   character; mixing models mid-chain keeps *position* continuity (frames still hand off)
@@ -250,8 +276,9 @@ Rules:
 - Default to `seedance_2_0`; honor a user's stated preference **only if the model
   qualifies** (frame-locking). If it doesn't, say so and use a supported model — never
   ship a non-seamless build to satisfy a model request.
-- The pipeline scripts take the model as `$VMODEL` with per-model flags already cased
-  out (`references/pipeline.md`).
+- The Higgsfield pipeline scripts take the model as `$VMODEL` with per-model flags already
+  cased out (`references/pipeline.md`). The fal path uses `$FAL_VIDEO_MODEL` and
+  `references/fal_pipeline.py` (`references/fal-ai.md`).
 
 ### A) Continuous forward take — RECOMMENDED for grounded / realistic / walkthrough
 One camera that only ever glides **forward**, first scene through last, as a single take.
@@ -596,6 +623,10 @@ is the thing most likely to be wrong:
   prompt template (scene still, dive, connector) with fill-in slots.
 - `references/pipeline.md` — copy-paste batch scripts for the whole run (generate →
   extract frames → connectors → encode → mobile encode), bash-3.2-safe.
+- `references/fal-ai.md` — fal.ai provider notes and copy-paste commands for stills,
+  architecture-A legs, and architecture-B dives/connectors.
+- `references/fal_pipeline.py` — small Python adapter around `fal-client` (upload local
+  frames, submit fal jobs, save JSON, download media).
 - `references/scrub-engine.js` — the portable, config-driven scrub engine (builds DOM +
   injects CSS; blob-seek, lazy load, seam crossfade, copy, route rail, reduced-motion, and
   phone hardening: mobile encodes, seek-coalescing, iOS priming, safe-area, no-jump resize).
