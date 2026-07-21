@@ -1,15 +1,11 @@
 ---
 name: scroll-world
-description: >
-  Build an immersive scroll-scrubbed "fly through the world" landing page for any
-  industry or brand using Higgsfield. As the visitor scrolls, a pre-rendered camera
-  flies from outside each scene into its interior, then flows on to the next scene
-  with NO cuts — one continuous connected flight (Emons-style isometric diorama world,
-  or any art direction you pick). The skill interviews the user for the topic, the
-  story beats/sections, and brand kit, then generates cohesive scenes + seamless camera
-  clips with Higgsfield and wires a portable, framework-agnostic scroll-scrub engine.
-  Use when the user wants a "3D world" / "browse-through-the-industry" hero, a scroll
-  cinematic, a diorama landing, or to turn a business into a scrollable world.
+description: >-
+  Build a scroll-scrubbed "fly through the world" landing page: a pre-rendered camera
+  flies between AI-generated diorama scenes as the user scrolls. Interviews for topic,
+  story beats, and brand kit, then generates cohesive stills + seamless video clips and
+  wires a portable vanilla-JS scrub engine. Use for 3D-world heroes, scroll cinematics,
+  diorama landings, or turning a business into a scrollable world.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
 ---
 
