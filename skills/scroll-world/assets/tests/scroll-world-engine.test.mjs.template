@@ -5,6 +5,10 @@ import test from "node:test";
 const engineUrl = new URL("{{ENGINE_RELATIVE_URL}}", import.meta.url);
 const engineSource = await readFile(engineUrl, "utf8");
 const engineModule = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const configSource = await readFile(new URL("{{CONFIG_RELATIVE_URL}}", import.meta.url), "utf8");
+const bootstrapSource = await readFile(new URL("{{BOOTSTRAP_RELATIVE_URL}}", import.meta.url), "utf8");
+const appSource = await readFile(new URL("{{APP_RAZOR_RELATIVE_URL}}", import.meta.url), "utf8");
+const homeSource = await readFile(new URL("{{HOME_RAZOR_RELATIVE_URL}}", import.meta.url), "utf8");
 const {
   accumulatedWheelTarget,
   mediaTimeForTarget,
@@ -52,14 +56,58 @@ test("section navigation duration, focus and boundaries are deterministic", () =
 });
 
 test("engine retains lifecycle and resource-release contracts", () => {
-  assert.match(engineSource, /event\.button !== 1/);
+  assert.match(engineSource, /event\.button !== 0 && event\.button !== 1/);
   assert.match(engineSource, /cancelNavigation\(\)[\s\S]*?cancelWheelScroll\(\)/);
   assert.match(engineSource, /new AbortController\(\)/);
   assert.match(engineSource, /revokeObjectURL/);
   assert.match(engineSource, /removeEventListener\('wheel', onWheel\)/);
+  assert.match(engineSource, /removeEventListener\('keydown', onKeyDown\)/);
   assert.match(engineSource, /data-scroll-world-first-picture/);
   assert.match(engineSource, /function scheduleScrub\(\)/);
+  assert.match(engineSource, /if \(s\.video\.seeking\) continue/);
+  assert.doesNotMatch(engineSource, /function raf\(\)[\s\S]*?requestAnimationFrame\(raf\)/);
 });
 
-// Add source-contract tests for the project bootstrap, App.razor, homepage SSR
-// metadata/content, approved links, and generated config as listed in references/qa.md.
+test("project config preserves the proven interaction defaults", () => {
+  assert.match(configSource, /wheelMultiplier:\s*1/);
+  assert.match(configSource, /wheelResponse:\s*18/);
+  assert.match(configSource, /navigationDuration:\s*1800/);
+  assert.match(configSource, /mountedWorlds/);
+  assert.match(configSource, /isConnected/);
+});
+
+test("route controls expose accessible state", () => {
+  assert.match(engineSource, /aria-label', 'Explore homepage sections/);
+  assert.match(engineSource, /aria-current', 'step/);
+  assert.match(engineSource, /aria-pressed/);
+});
+
+test("fresh homepage remains SSR-only while other pages can start Auto", () => {
+  assert.match(bootstrapSource, /data-scroll-world-first-still/);
+  assert.match(bootstrapSource, /if \(firstFrame\) return/);
+  assert.match(bootstrapSource, /script\.src = "_framework\/blazor\.web\.js"/);
+  assert.match(bootstrapSource, /await globalThis\.Blazor\.start\(\)/);
+  assert.match(bootstrapSource, /enhancednavigationstart/);
+  assert.match(bootstrapSource, /enhancednavigationend/);
+  assert.match(
+    bootstrapSource,
+    /function onEnhancedNavigationEnd\(\)[\s\S]*?behavior: "instant"[\s\S]*?syncScrollWorlds\(\)/
+  );
+  assert.doesNotMatch(bootstrapSource, /interactionQuietPeriod|minimumDelay|markInteraction/);
+});
+
+test("root and homepage retain SSR ownership and first-picture discovery", () => {
+  assert.match(appSource, /<Routes\s*\/>/);
+  assert.doesNotMatch(appSource, /<Routes[^>]*@rendermode/);
+  assert.match(appSource, /BlazorWarmup[^>]*InteractiveAuto/);
+  assert.doesNotMatch(appSource, /ResourcePreloader/);
+  assert.doesNotMatch(appSource, /src="_framework\/blazor\.web\.js"/);
+  assert.match(homeSource, /data-scroll-world-first-frame/);
+  assert.match(homeSource, /data-scroll-world-first-picture/);
+  assert.match(homeSource, /fetchpriority="high"/);
+  assert.match(homeSource, /<h1>/);
+
+  if (/^\s*clipMobile:/m.test(configSource)) {
+    assert.match(homeSource, /media="\(max-width:\s*860px\)"/);
+  }
+});

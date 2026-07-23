@@ -3,6 +3,15 @@
 Everything here is fill-in-the-slots. Keep the **style preamble** byte-for-byte identical
 across all scene stills — that identical text is what makes the world feel like one place.
 
+## Contents
+
+1. Intake and locked choices
+2. Shared style preamble
+3. Scene-image prompts and review
+4. Architecture A leg prompts
+5. Architecture B dive/connector prompts
+6. Homepage copy fields
+
 ## Intake checklist (SKILL Phase 2)
 
 Collect and write down:
@@ -20,12 +29,13 @@ Collect and write down:
   Kling Standard/Pro/4K alternate. Inspect the live schema and show the calibrated
   cost before anything renders.
 - `SOURCE_BITRATE` — standard (default) | high. High can improve a demanding master but
-  costs/weights more; the final web encode is still separately compressed.
+  creates a larger source and may affect live pricing; calibrate rather than claiming a
+  fixed surcharge. The final web encode is still separately compressed.
 - `GENERATE_AUDIO` — no. The site is muted and native audio materially increases cost.
 - `STILLS_SOURCE` — Higgsfield `gpt_image_2` 1K/2K/4K (default 2K high) |
   Higgsfield `nano_banana_2`/Nano Banana Pro 1K/2K/4K | Codex `image_gen`
   (no Higgsfield credits; only offer when available). Use one source/model throughout.
-- `MOBILE=yes` means the **native 9:16 portrait chain** (pipeline §6b):
+- `MOBILE=yes` means the **native 9:16 portrait chain** (pipeline §7):
   portrait renders of every dive/connector + `clipMobile`/`connectorsMobile`/`stillMobile`
   wiring + the full mobile QA. The §6 crop encodes are a no-credits stopgap only.
 - `REVISION_ALLOWANCE` — normally 25–50% beyond the accepted-clip base count for
@@ -67,10 +77,12 @@ Tips:
 - **Compose for the centre.** The page renders every clip `object-fit:cover`. Keep the
   focal subject horizontally centred with a little headroom, and don't park anything
   essential at the far left/right edges. Mobile ships its own native 9:16 chain
-  (pipeline §6b), so this is not about surviving a crop — but a centred composition makes
+  (pipeline §7), so this is not about surviving a crop — but a centred composition makes
   the portrait renders open cleanly from the same still, and it keeps the dive's focal
   point where the camera actually flies.
-- Aspect `3:2`, `--resolution 2k --quality high`.
+- Use 3:2 for a floating-island concept that may be recomposed; use 16:9 for full-bleed
+  desktop art. Native full-bleed mobile uses a separately generated 9:16 composition.
+  Default quality remains `--resolution 2k --quality high`.
 
 Generate one still candidate only, present the actual image with prompt/model/dimensions/
 quality/cost, and wait for explicit thumbs-up or thumbs-down. Preserve rejected revisions.
@@ -83,6 +95,11 @@ generating video.
 `--start-image = previous leg's ACTUAL last frame` (leg 0: the first scene's still).
 **No `--end-image`.** The bolded clauses are the motion-handoff contract — keep them
 verbatim; the mid-leg move is where the expression goes.
+
+For Seedance legs after leg 0, also provide the current scene’s approved concept with
+`--image` as a non-boundary visual reference. The exact previous frame remains
+`--start-image`; never swap those roles. Kling 3.0 has no separate image-reference input,
+so its later architecture-A scenes rely on the prompt and have higher drift risk.
 
 ```
 Single continuous cinematic camera move, no cuts. **Continue the same slow, steady

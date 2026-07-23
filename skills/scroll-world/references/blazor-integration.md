@@ -54,13 +54,36 @@ The SSR homepage contains:
 - A route and non-interactive scroll-world layout.
 - One stable container with a unique ID and `data-scroll-world="{{WORLD_KEY}}"`.
 - A first-frame wrapper marked `data-scroll-world-first-frame`.
-- A responsive `<picture data-scroll-world-first-picture>` with the `<img data-scroll-world-first-still>`.
+- A responsive `<picture data-scroll-world-first-picture>` with the
+  `<img data-scroll-world-first-still>`, using the approved desktop video’s exact frame 0.
+- When native mobile exists, a leading `media="(max-width: 860px)"` portrait `<source>`
+  built from the approved portrait frame 0. Remove the template insertion token entirely
+  for desktop-only work.
 - A semantic SSR copy section containing the real H1, every section summary, and approved
   homepage links. Destinations may be existing pages, external URLs, or minimal placeholders.
 
 The JS engine adopts that existing `<picture>` into its first scene. It marks the generated visual copy layer `aria-hidden` and makes duplicate JS CTAs untabbable, so search engines and assistive technology use the SSR source without duplicate focus targets.
 
-The first-frame wrapper needs a full-viewport background using the tiny blurred placeholder. Keep the real image eager, `fetchpriority="high"`, dimensions set, and its sources pre-sized. The LQIP prevents an empty flash; it must not delay the real image.
+The first-frame wrapper needs a full-viewport background using the matching frame-0 LQIP
+(portrait LQIP under the mobile media query when applicable). Keep the real image eager,
+`fetchpriority="high"`, dimensions set to the actual desktop fallback, and its sources
+pre-sized. The LQIP prevents an empty flash; it must not delay the real image.
+
+The hidden SSR story mirrors the cinematic text. If its links are duplicated by visible
+top navigation/CTAs, set the hidden copies to `tabindex="-1"` and verify the visible
+equivalents remain keyboard accessible.
+
+Native-mobile source shape:
+
+```html
+<source media="(max-width: 860px)"
+        type="image/webp"
+        width="720"
+        height="1280"
+        srcset="/assets/scroll-world/stills/first-mobile-480.webp 480w,
+                /assets/scroll-world/stills/first-mobile.webp 720w"
+        sizes="100vw" />
+```
 
 ## Navigation rules
 

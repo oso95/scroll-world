@@ -33,4 +33,6 @@
 }
 
 /* Add approved brand-specific chrome overrides below. Keep the engine's layout,
-   scroll ownership, reduced-motion, and mobile rules in its injected layer. */
+   scroll ownership, reduced-motion, and mobile rules in its injected layer.
+   For an approved native portrait chain, add a <=860px override using the
+   portrait frame-0 LQIP; never request a nonexistent mobile placeholder. */

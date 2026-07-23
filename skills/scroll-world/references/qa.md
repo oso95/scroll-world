@@ -13,6 +13,7 @@ Copy/adapt `assets/tests/scroll-world-engine.test.mjs.template` into the project
 - Navigation follows its configured duration and section `focus` clamps to 0–1.
 - Section index changes exactly at the next start boundary.
 - Middle-button press cancels wheel and navigation animations.
+- Primary pointer/scroll-key input cancels older owned animations before native scrolling.
 - Disposal removes wheel/scroll/pointer/resize/orientation/load listeners, cancels frames, aborts requests, removes videos, and revokes Blob URLs.
 - Poster adoption/deferred posters, demand-driven scrubbing, busy-decoder coalescing, and nearby-media unloading remain present.
 - Bootstrap does not start Blazor when the initial first-still marker exists.
@@ -22,6 +23,8 @@ Copy/adapt `assets/tests/scroll-world-engine.test.mjs.template` into the project
 - Homepage title, description, canonical, social metadata, H1, and truthful JSON-LD are
   present before JavaScript.
 - Supporting routes remain untouched except explicitly approved minimal placeholders.
+- Route controls expose an accessible name and current/pressed state.
+- Skill-created placeholders are `noindex,follow`.
 
 Follow existing repository requirements. If Blazor tests use Reqnroll + bUnit, write business-readable feature scenarios and step definitions instead of direct code-first tests.
 
@@ -43,8 +46,15 @@ At desktop width test:
 12. On non-home pages, verify native wheel/touch/scrollbar behaviour and no engine media/listeners.
 13. Direct-load an existing interactive page, when the project has one, then
     enhanced-navigate home: runtime remains, y=0, engine mounted.
+14. Keyboard through visible navigation/CTAs and route controls: no invisible duplicate
+    links receive focus; active section state is announced.
 
-Repeat essential loading/scroll checks at phone portrait/landscape. If native mobile media was purchased, verify portrait files and posters are actually selected (`videoWidth < videoHeight`), CPU throttle 4–6×, collapse the URL bar, rotate, and test iOS Safari priming. A desktop-only build still needs graceful phone fallback with no overlap/blank scene.
+Repeat essential loading/scroll checks at phone portrait/landscape. If native mobile media
+was purchased, verify portrait files and posters are actually selected
+(`videoWidth < videoHeight`), CPU throttle 4–6×, collapse the URL bar, rotate, and test
+iOS Safari priming. A desktop-only build still needs graceful phone fallback with no
+overlap/blank scene. Where available, cover current Chrome, Edge, Firefox, and Safari
+rather than treating one Chromium run as cross-browser proof.
 
 Test reduced motion: no video network requests, stills remain meaningful, particles and wheel animation are absent.
 
@@ -58,8 +68,15 @@ Record rather than eyeball:
 - No permanent requestAnimationFrame loop while idle.
 - Only nearby clips are live (roughly four for a typical chain); distant fetches abort and disposed Blob URLs revoke.
 - First still is the LCP candidate, responsive source chosen, no CLS from missing dimensions.
+- Every public poster uses the composition/aspect of exact frame 0 of its approved section video;
+  native mobile selects the portrait first-picture source before JavaScript.
 
-Run Lighthouse against the production endpoint with consistent desktop and mobile profiles. Report Performance, Accessibility, Best Practices, SEO, LCP, CLS, INP/TBT proxy, speed index, transfer size, request count, largest assets, unused JS/CSS, render blockers, and console/network errors. Targets are guardrails, not fabricated results: categories ≥95, local LCP <1 s where realistic, CLS <0.1, INP <200 ms.
+Run Lighthouse against the production endpoint with consistent desktop and mobile profiles,
+including the normal mobile throttling profile. Report Performance, Accessibility, Best
+Practices, SEO, LCP, CLS, INP/TBT proxy, speed index, transfer size, request count, largest
+assets, unused JS/CSS, render blockers, and console/network errors. Targets are guardrails,
+not fabricated results: categories ≥95, local desktop LCP <1 s where realistic, CLS <0.1,
+INP <200 ms. Do not promise a sub-second field/mobile LCP without production evidence.
 
 Inspect the raw initial homepage HTML with an HTTP client: title, meta description,
 canonical, social metadata, H1, every cinematic section summary, approved links, and

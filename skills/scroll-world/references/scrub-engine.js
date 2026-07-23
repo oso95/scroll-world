@@ -155,6 +155,7 @@ function mountScrollWorld(container, config) {
 
   // ---- DOM ----
   const sky = el('div', 'sw-sky');
+  sky.setAttribute('aria-hidden', 'true');
   if (config.atmosphere !== false) {
     sky.appendChild(el('div', 'sw-sky__grad'));
     sky.appendChild(el('div', 'sw-sky__glow'));
@@ -162,6 +163,7 @@ function mountScrollWorld(container, config) {
   const particles = el('div', 'sw-particles'); sky.appendChild(particles);
 
   const scrollbar = el('div', 'sw-scrollbar');
+  scrollbar.setAttribute('aria-hidden', 'true');
   const scrollbarFill = el('span'); scrollbar.appendChild(scrollbarFill);
 
   const topbar = el('div', 'sw-topbar');
@@ -171,17 +173,22 @@ function mountScrollWorld(container, config) {
     const nm = el('span', 'sw-brand__name'); nm.textContent = config.brand.name || ''; brand.appendChild(nm);
     topbar.appendChild(brand);
   }
-  const nav = el('nav', 'sw-nav'); if (config.nav !== false) topbar.appendChild(nav);
+  const nav = el('nav', 'sw-nav');
+  nav.setAttribute('aria-label', 'Primary');
+  if (config.nav !== false) topbar.appendChild(nav);
   if (config.cta && config.cta.label) {
     const c = el('a', 'sw-topcta'); c.href = config.cta.href || '#'; c.textContent = config.cta.label;
     topbar.appendChild(c);
   }
 
   const stage = el('div', 'sw-stage');
+  stage.setAttribute('aria-hidden', 'true');
   const copylayer = el('div', 'sw-copylayer');
   copylayer.setAttribute('aria-hidden', 'true');
-  const route = el('div', 'sw-route');
+  const route = el('nav', 'sw-route');
+  route.setAttribute('aria-label', 'Explore homepage sections');
   const hint = el('div', 'sw-hint');
+  hint.setAttribute('aria-hidden', 'true');
   const hintText = el('span'); hintText.textContent = config.hint || 'scroll'; hint.appendChild(hintText);
   hint.appendChild(el('i'));
   const track = el('div', 'sw-track');
@@ -233,12 +240,17 @@ function mountScrollWorld(container, config) {
       (s.cta ? `<div class="sw-copy__cta">${ctaBtns(s.cta)}</div>` : '');
     copylayer.appendChild(c); copies.push(c);
 
-    const dot = el('button', 'sw-route__dot'); dot.style.setProperty('--sw-accent', s.accent || '');
+    const dot = el('button', 'sw-route__dot');
+    dot.type = 'button';
+    dot.setAttribute('aria-label', `Go to ${s.label || `section ${i + 1}`}`);
+    dot.style.setProperty('--sw-accent', s.accent || '');
     dot.innerHTML = `<span class="sw-route__label">${esc(s.label || '')}</span><i></i>`;
     dot.addEventListener('click', () => jumpTo(i)); route.appendChild(dot); dots.push(dot);
 
     if (config.nav !== false && !NAV_LINKS.length) {
-      const b = el('button', 'sw-nav__item'); b.textContent = s.label || '';
+      const b = el('button', 'sw-nav__item');
+      b.type = 'button';
+      b.textContent = s.label || '';
       b.dataset.sectionNav = '';
       b.addEventListener('click', () => jumpTo(i)); nav.appendChild(b);
     }
@@ -464,8 +476,17 @@ function mountScrollWorld(container, config) {
     if (near !== activeIndex) {
       activeIndex = near;
       copies.forEach((copy, k) => copy.classList.toggle('is-active', k === near));
-      dots.forEach((d, k) => d.classList.toggle('is-active', k === near));
-      nav.querySelectorAll('.sw-nav__item[data-section-nav]').forEach((n, k) => n.classList.toggle('is-active', k === near));
+      dots.forEach((d, k) => {
+        const active = k === near;
+        d.classList.toggle('is-active', active);
+        if (active) d.setAttribute('aria-current', 'step');
+        else d.removeAttribute('aria-current');
+      });
+      nav.querySelectorAll('.sw-nav__item[data-section-nav]').forEach((n, k) => {
+        const active = k === near;
+        n.classList.toggle('is-active', active);
+        n.setAttribute('aria-pressed', String(active));
+      });
       container.style.setProperty('--sw-accent', SECTIONS[near].accent || '');
     }
     scrollbarFill.style.transform = `scaleX(${clamp(y / (totalW * vh))})`;
@@ -514,14 +535,22 @@ function mountScrollWorld(container, config) {
   window.addEventListener('pointerdown', onFirstGesture, { once: true, passive: true });
   window.addEventListener('touchstart', onFirstGesture, { once: true, passive: true });
 
-  // Chrome's middle-button autoscroll owns document position until the button is
-  // released. Stop any older animation from fighting it and restoring a stale target.
+  // Pointer-driven native scrolling/scrollbar work owns document position. In particular,
+  // Chrome middle-button autoscroll must never fight an older custom target.
   function onPointerDown(event) {
-    if (event.button !== 1) return;
+    if (event.button !== 0 && event.button !== 1) return;
     cancelNavigation();
     cancelWheelScroll();
   }
   window.addEventListener('pointerdown', onPointerDown, { passive: true });
+
+  const scrollKeys = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
+  function onKeyDown(event) {
+    if (!scrollKeys.has(event.key)) return;
+    cancelNavigation();
+    cancelWheelScroll();
+  }
+  window.addEventListener('keydown', onKeyDown, { passive: true });
 
   // Particles are a per-frame cost we can't afford alongside video scrubbing on a phone.
   seedParticles(particles, reduce || coarse);
@@ -577,6 +606,7 @@ function mountScrollWorld(container, config) {
     window.removeEventListener('pointerdown', onFirstGesture);
     window.removeEventListener('pointerdown', onPointerDown);
     window.removeEventListener('touchstart', onFirstGesture);
+    window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('scroll', onScroll);
     window.removeEventListener('wheel', onWheel);
     window.removeEventListener('resize', onResize);
@@ -613,6 +643,7 @@ function injectCSS() {
     --sw-font-display:ui-rounded,"SF Pro Rounded","Segoe UI",system-ui,sans-serif;
     --sw-font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
     color:var(--sw-ink);font-family:var(--sw-font-body);}
+  .sw-root a:focus-visible,.sw-root button:focus-visible{outline:3px solid #fff;outline-offset:3px;box-shadow:0 0 0 5px var(--sw-ink);}
   html,body{margin:0;background:var(--sw-bg,#F5EDE0);overflow-x:hidden;}
   .sw-sky{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:var(--sw-bg);}
   .sw-sky__grad{position:absolute;inset:-10%;background:linear-gradient(178deg,color-mix(in srgb,var(--sw-accent) 12%,var(--sw-bg)) 0%,var(--sw-bg) 55%,color-mix(in srgb,var(--sw-accent) 6%,var(--sw-bg)) 100%);}
@@ -661,7 +692,7 @@ function injectCSS() {
   .sw-route__dot:hover i{transform:scale(1.25);background:var(--sw-accent);}
   .sw-route__dot.is-active i{background:var(--sw-accent);transform:scale(1.4);box-shadow:0 0 0 5px color-mix(in srgb,var(--sw-accent) 22%,transparent);}
   .sw-route__label{position:absolute;right:24px;top:50%;transform:translateY(-50%) translateX(6px);white-space:nowrap;font-size:.78rem;font-weight:600;color:var(--sw-ink);background:color-mix(in srgb,#fff 85%,transparent);backdrop-filter:blur(6px);padding:5px 11px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;border:1px solid color-mix(in srgb,var(--sw-accent) 14%,transparent);}
-  .sw-route__dot:hover .sw-route__label,.sw-route__dot.is-active .sw-route__label{opacity:1;transform:translateY(-50%) translateX(0);}
+  .sw-route__dot:hover .sw-route__label,.sw-route__dot:focus-visible .sw-route__label,.sw-route__dot.is-active .sw-route__label{opacity:1;transform:translateY(-50%) translateX(0);}
   .sw-hint{position:fixed;left:50%;bottom:24px;z-index:30;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 16px 12px;border:1px solid color-mix(in srgb,var(--sw-ink) 16%,transparent);border-radius:999px;background:color-mix(in srgb,#fff 86%,transparent);box-shadow:0 10px 32px color-mix(in srgb,var(--sw-ink) 18%,transparent),inset 0 1px 0 #fff;backdrop-filter:blur(12px);font-size:.78rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sw-ink);transition:opacity .3s;}
   .sw-hint i{width:28px;height:40px;border-radius:15px;border:2px solid color-mix(in srgb,var(--sw-ink) 72%,transparent);background:color-mix(in srgb,#fff 62%,transparent);box-shadow:0 3px 10px color-mix(in srgb,var(--sw-ink) 12%,transparent);position:relative;}
   .sw-hint i::after{content:"";position:absolute;left:50%;top:7px;width:5px;height:9px;border-radius:3px;background:var(--sw-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--sw-accent) 16%,transparent);transform:translateX(-50%);animation:sw-wheel 1.45s ease-in-out infinite;}

@@ -1,8 +1,10 @@
 # Approval-gated media review
 
-Every generated still and paid video candidate is a human review checkpoint. Never batch,
-parallelize, queue, or auto-continue image or video generation, even when the provider,
-account, or tool supports concurrency.
+Every stochastic image and video candidate is a human review checkpoint—including brand,
+scene, social and portrait image generation. Never batch, parallelize, queue, or
+auto-continue image or video generation, even when the provider, account, or tool supports
+concurrency. Deterministic derivatives such as resizes, LQIPs and extracted frames do not
+need a new thumbs-up, but must be visually compared with their approved source.
 
 ## Candidate cycle
 
@@ -28,6 +30,10 @@ account, or tool supports concurrency.
    revised candidate. Otherwise show the proposed prompt/input change and incremental
    cost, then ask before spending.
 8. Repeat until approved or the user explicitly abandons/substitutes that slot.
+
+Before asking, state any objective defect already found. Do not invite approval for a
+candidate known to violate the locked brief; still preserve it and obtain spend authority
+before a replacement when the existing allowance does not cover one.
 
 Maintain `review/approval-ledger.md` (or equivalent project artifact) with one row per
 image or video candidate: media type, slot, orientation, revision, job ID, settings,
@@ -80,6 +86,9 @@ Approve only when:
   palette and art direction, contains no unwanted text/logos/artifacts, and has enough safe
   framing for its target orientation.
 - The opening frame matches its required source.
+- The opening frame is meaningful and clean enough to become the public frame-0 poster and
+  reduced-motion fallback.
+- There is no rapid flashing, unsafe flicker, or unintended generated audio.
 - The intended subject/action is readable throughout.
 - Camera velocity and direction satisfy the handoff contract.
 - No unwanted text, logos, anatomy/geometry failures, flicker, or style drift remain.

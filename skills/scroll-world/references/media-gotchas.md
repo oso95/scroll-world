@@ -5,7 +5,9 @@
 - **Frozen at frame zero:** hosting has no useful byte-range seekability. Keep the engine’s Blob fetch path.
 - **Huge clips:** all-intra encoding was used. Desktop GOP 8 is the baseline; native mobile GOP 4. Tighten only after measured decoder issues.
 - **Soft output:** source was downscaled/upscaled or over-compressed. Encode at native resolution, about CRF 20, with restrained sharpening. Never upscale Kling’s native 720p output.
-- **White box around an island:** match the page background exactly or run `knockout.py` before poster encoding. Video itself still needs a full-frame solid-background source.
+- **White box around an island:** match the page background exactly. Use `knockout.py`
+  only when the approved concept must be composited onto a portrait canvas; video and
+  frame-0 posters remain full-frame.
 - **503 or apparent credit race:** inspect the candidate JSON/error and live workspace balance. Retry only that candidate; do not touch approved outputs.
 - **Repeated content-filter rejection:** retry because some decisions are non-deterministic; then remove trigger terms and describe an empty, unoccupied, architectural scene. If still blocked, use the approved alternate provider for only that clip with the same endpoints and inspect the resulting render-character shift. Never silently leave a missing clip.
 - **Kling flag errors:** query the live model schema. Historically `kling3_0` accepts start/end images, has no resolution flag, and needs sound disabled; do not assume stale flags.
@@ -20,7 +22,10 @@
   live schema and explicitly disable it; the web experience strips/mutes audio anyway.
 - **Rejected clip appears in the build:** an encode glob selected every revision. Encode
   from the approval ledger's exact filenames only; keep rejected candidates for audit.
-- **Rejected still conditions a video or appears as a poster:** a generation glob selected
-  revisions instead of the approval ledger. Generate images one at a time, require explicit
-  approval, and build the contact sheet, video inputs, and poster derivatives only from exact
-  approved filenames.
+- **Rejected concept conditions a video:** a generation glob selected revisions instead of
+  the approval ledger. Generate images one at a time and build contact sheets/inputs only
+  from exact approved filenames.
+- **Poster flashes or has the wrong aspect:** a 3:2 concept image was published as a
+  poster. Rebuild the poster from exact frame 0 of the approved section video and use its
+  real intrinsic dimensions. Native mobile needs its own portrait frame-0 source in the
+  SSR `<picture>`.

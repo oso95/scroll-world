@@ -40,7 +40,8 @@ The skill is intentionally Blazor-first. It expects a server-hosted Blazor Web A
 It produces:
 
 - A cinematic scroll-scrubbed homepage.
-- Semantic SSR homepage content and responsive first-frame/LQIP delivery.
+- Semantic SSR homepage content and responsive posters/LQIPs derived from each approved
+  section video's exact opening frame.
 - Homepage canonical/social metadata, truthful homepage JSON-LD, approved links, accessibility, and reduced-motion support.
 - Optional minimal “Coming soon” placeholder routes where homepage navigation needs a missing destination.
 - A lifecycle-safe scroll engine limited to home; native scroll everywhere else.
@@ -55,8 +56,10 @@ does not take ownership of site-wide SEO/AEO, robots, sitemap, or supporting-pag
 - A Blazor Web App targeting a currently supported .NET version.
 - Authenticated [Higgsfield CLI](https://higgsfield.ai) with approved credits.
 - `ffmpeg` and `ffprobe`.
+- PowerShell 7 on Windows, or Bash 3.2+ with `jq` and `curl` on Unix-like systems.
 - Python 3 + Pillow when background knockout or local LQIP tooling requires it.
-- Optional Codex image generation for stills.
+- Optional direct Codex image generation for stills; an already-installed/authenticated
+  nested CLI is only a fallback.
 
 The skill audits these requirements but does not install tools, authenticate, switch workspaces, or spend credits without approval.
 
@@ -65,17 +68,19 @@ The skill audits these requirements but does not install tools, authenticate, sw
 Every run explicitly chooses:
 
 - Draft Mini (480/720p), efficient Seedance Fast (480/720p), production Seedance Standard (1080p), premium Seedance Standard (4K), or Kling Standard/Pro/4K alternate.
-- Desktop only or a separate native 9:16 mobile chain. Native mobile roughly doubles video generation; a crop is never silently labelled mobile-optimised.
+- Desktop only or a separate native 9:16 mobile chain. Native mobile roughly doubles video
+  generation and can require separate portrait stills; a crop is never silently labelled
+  mobile-optimised.
 - Continuous forward architecture for grounded worlds or dive/connector architecture for miniature worlds.
 - Higgsfield or available Codex image generation for all stills in the chain.
 
 The seam rule is strict: neighbouring clips share actual rendered boundary frames. Scroll scrubs the resulting video; it does not render 3D in the browser.
 
-Generated images and paid videos are never blasted through as a batch. The skill generates
-one candidate, shows it with its prompt/settings/cost, and waits for a thumbs-up or
-thumbs-down with feedback. Rejected revisions are preserved and logged. Only approved
-stills may condition video, and only an explicitly approved clip can unlock the next
-dependent generation.
+Every stochastic image and video is reviewed one at a time—scene concepts, portrait
+variants, social/brand images, dives, legs, and connectors. The skill shows the candidate
+with its prompt/settings/cost and waits for a thumbs-up or thumbs-down with feedback.
+Rejected revisions are preserved and logged. Only approved stills may condition video,
+and only an explicitly approved clip can unlock the next dependent generation.
 
 ## Proven interaction defaults
 

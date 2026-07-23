@@ -34,9 +34,11 @@ export function mountProjectWorld(containerId) {
       {
         id: "{{SECTION_1_ID}}",
         label: "{{SECTION_1_LABEL}}",
+        // Exact frame 0 of this approved section clip, not its concept/conditioning still.
         still: "/assets/scroll-world/stills/{{SECTION_1_STILL}}.webp",
         clip: "/assets/scroll-world/video/{{SECTION_1_CLIP}}.mp4",
         // Add stillMobile/clipMobile only when a native 9:16 chain was approved.
+        // stillMobile must be exact frame 0 of clipMobile.
         scroll: 1.6,
         linger: 0.28,
         // focus: 0.5, // Tune to the most meaningful rendered frame.

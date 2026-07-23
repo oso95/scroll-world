@@ -14,12 +14,13 @@
          data-scroll-world-first-frame
          aria-hidden="true">
         <picture data-scroll-world-first-picture>
+            {{FIRST_STILL_MOBILE_SOURCE_ELEMENT}}
             <source type="image/webp"
-                    srcset="/assets/scroll-world/stills/{{FIRST_STILL}}-640.webp 640w, /assets/scroll-world/stills/{{FIRST_STILL}}-960.webp 960w, /assets/scroll-world/stills/{{FIRST_STILL}}.webp 1280w"
+                    srcset="{{FIRST_STILL_DESKTOP_SRCSET}}"
                     sizes="100vw" />
             <img src="/assets/scroll-world/stills/{{FIRST_STILL}}.webp"
-                 width="1280"
-                 height="720"
+                 width="{{FIRST_STILL_WIDTH}}"
+                 height="{{FIRST_STILL_HEIGHT}}"
                  alt=""
                  loading="eager"
                  decoding="async"
@@ -34,8 +35,11 @@
         <h1>{{HOME_H1}}</h1>
         <h2>{{SECTION_1_TITLE}}</h2>
         <p>{{SECTION_1_BODY}}</p>
-        <a href="{{SECTION_1_CTA_HREF}}">{{SECTION_1_CTA_LABEL}}</a>
-        <!-- Repeat real headings/summaries for every scene. Add only approved valid links. -->
-        <a href="{{PRIMARY_CTA_HREF}}">{{PRIMARY_CTA_LABEL}}</a>
+        <a href="{{SECTION_1_CTA_HREF}}"
+           tabindex="-1">{{SECTION_1_CTA_LABEL}}</a>
+        <!-- Repeat every real heading/summary. Hidden links must have an equivalent
+             visible keyboard-accessible nav/CTA before receiving tabindex="-1". -->
+        <a href="{{PRIMARY_CTA_HREF}}"
+           tabindex="-1">{{PRIMARY_CTA_LABEL}}</a>
     </section>
 </main>

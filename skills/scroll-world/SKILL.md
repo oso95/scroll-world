@@ -39,7 +39,10 @@ Preserve these defaults unless the user explicitly requests a different behaviou
 11. The initial homepage is SSR-only. If `[data-scroll-world-first-still]` exists on initial load, do not fetch `_framework/blazor.web.js`, server circuits, boot JSON, or WASM.
 12. Non-home pages start Blazor after first paint/idle. Use InteractiveAuto so the first interactive visit can use Server while WASM downloads and later visits can use cached WASM.
 13. If Blazor already started on another page, enhanced navigation home keeps that runtime and mounts the scroll world normally.
-14. The first image is a server-rendered responsive `<picture>` with a tiny blurred LQIP fallback. Adopt it into the engine instead of duplicating it. Defer later posters.
+14. The first image is a server-rendered responsive `<picture>` built from the approved
+    first video’s exact frame 0, with a tiny blurred LQIP fallback. When native mobile
+    exists, the picture selects the approved portrait frame 0. Adopt it into the engine
+    instead of duplicating it. Defer later posters.
 15. Render meaningful headings, descriptions, and internal links in SSR HTML. The visual JS copy layer is `aria-hidden`; its duplicate CTA links are removed from tab order.
 
 Use the canonical engine at `references/scrub-engine.js`. Do not rewrite or simplify its scheduling, scroll ownership, media cleanup, or lifecycle without adding regression coverage.
@@ -54,8 +57,13 @@ Audit prerequisites without mutating the machine or account:
 
 - `higgsfield` installed and authenticated; inspect workspace/credits.
 - `ffmpeg` and `ffprobe` on PATH.
+- A native script route for the media pipeline: PowerShell 7 on Windows, or Bash 3.2+
+  with `jq` and `curl` on Unix-like systems. Do not assume one shell from another.
 - Python 3 + Pillow only if knockout or LQIP tooling needs it.
 - Optional Codex image generation route if available.
+- A supported .NET SDK, the repository’s JS package runner when applicable, and an
+  existing Chrome/Edge or browser-automation route for real interaction QA.
+- An existing Lighthouse installation/runner for performance auditing.
 
 If anything is missing, report the exact requirement and command. Never install tools, authenticate, switch workspaces, buy/use credits, or change account state without explicit approval. Run generation only after the user approves the estimated spend.
 
@@ -69,7 +77,10 @@ Ask only decisions that change the result. Group questions into short rounds.
 4. Camera architecture:
    - A: continuous forward chain for grounded walkthroughs. Recommended unless the world is intentionally miniature/map-like.
    - B: dives plus aerial connectors for diorama worlds.
-5. Mobile media, always ask: desktop only or a second native 9:16 chain. Explain that native portrait approximately doubles video spend. Never silently call a centre crop “mobile-optimised.”
+5. Mobile media, always ask: desktop only or a second native 9:16 chain. Explain that
+   native portrait approximately doubles video spend and may add `N` portrait image
+   generations when separate compositions are required. Never silently call a centre
+   crop “mobile-optimised.”
 6. Quality, always inspect the live model schemas and ask:
 
    | Tier | Video route | Purpose |
@@ -84,8 +95,10 @@ Ask only decisions that change the result. Group questions into short rounds.
    - Higgsfield `gpt_image_2`: 1K/2K/4K and low/medium/high; default 2K high.
    - Higgsfield `nano_banana_2`/Nano Banana Pro: 1K/2K/4K alternative when its
      composition style better suits the brief.
-   - Codex image generation when available: no Higgsfield credits, but subject to Codex
-     usage and its available output sizes.
+   - Codex image generation when directly available to the agent: no Higgsfield credits,
+     but subject to Codex usage and available output sizes. Prefer the direct tool; use a
+     nested Codex CLI only when no direct image-generation tool exists and the CLI is
+     already installed/authenticated.
 
    Never mix still models/sources within one chain.
    Ask whether to use standard or high source bitrate where the model exposes it. Disable
@@ -96,7 +109,21 @@ Ask only decisions that change the result. Group questions into short rounds.
 8. Deployment/media origin: local assets for development or a CDN. Capture the canonical
    production origin for homepage canonical/social metadata and homepage JSON-LD.
 
-Calculate `N stills + (2N−1) accepted videos` for architecture B, or `N stills + N accepted sequential legs` for A; double accepted video work for native mobile. Show base cost separately from a realistic revision allowance (normally 25–50% for production review; more for ambitious motion). Calibrate with one approved still and one approved video because live prices vary. Stop for approval before paid generation.
+Calculate `N images + (2N−1) accepted videos` for architecture B, or `N images + N
+accepted sequential legs` for A. Native mobile doubles video work and adds `N` image
+generations when it needs separately generated portrait compositions; a reviewed
+floating-island canvas derivative adds no generation. Show accepted-media base cost
+separately from a realistic 25–50% revision allowance (more for ambitious motion).
+
+Use staged spend approval because live prices vary:
+
+1. Approve the preflight estimate before any paid generation.
+2. Generate/review one image candidate, measure the balance change, recalculate the
+   remaining image budget, and confirm it before continuing.
+3. After the approved image set/cohesion gate, generate/review one representative video,
+   measure it, recalculate the remaining video budget, and confirm it before continuing.
+
+Never treat a budget allowance as permission to batch or auto-reroll.
 
 Write down the approved choices and success criteria before generating.
 
@@ -112,20 +139,25 @@ or unsupported claims. Do not flesh out linked pages.
 
 Implement homepage title, description, canonical, Open Graph/Twitter metadata, accessible
 heading hierarchy, and only truthful homepage JSON-LD. Use `WebPage`, `WebSite`, and a
-truthful `Organization`/`LocalBusiness` only when the required facts are supplied. Do not
-create or overhaul site-wide robots, sitemap, breadcrumbs, service schema, FAQ schema, or
+truthful `Organization`/`LocalBusiness` only when the required facts are supplied.
+Homepage-visible offers may use truthful `Offer`/`Service` relationships. Do not create or
+overhaul site-wide robots, sitemap, breadcrumbs, supporting-page schema, FAQ schema, or
 supporting-page metadata. Report any existing crawl rule that blocks the homepage. Read
 `references/homepage-foundation.md` before implementation.
+
+Target WCAG 2.2 AA for skill-created homepage UI and reject rapid flashing/flicker. Do not
+add analytics, tracking pixels, cookies, consent tooling, or legal pages unless explicitly
+requested; preserve and report existing site behaviour instead.
 
 ## Phase 4 — Generate a seamless media chain
 
 Read `references/prompts.md`, `references/pipeline.md`, and `references/media-gotchas.md` completely before generating.
 
 Use one byte-identical style preamble, palette, lens/lighting language, and still source
-throughout. Generate and approve stills through `references/review-workflow.md`, exactly one
-candidate at a time. After every still is individually approved, present a contact sheet of
-approved stills for final world-level cohesion approval. Do not begin video generation before
-that approval.
+throughout. Generate and approve every stochastic image through
+`references/review-workflow.md`, exactly one candidate at a time. After every scene still is
+individually approved, present a contact sheet of approved stills for final world-level
+cohesion approval. Do not begin video generation before that approval.
 
 Generate all media through the approval gate in `references/review-workflow.md`. Never batch,
 parallelize, queue, or automatically continue through still or video generations:
@@ -145,22 +177,37 @@ portrait variants require their own review. Desktop approval does not approve mo
 
 The seam rule is absolute:
 
-- Architecture A: each next leg starts from the previous leg’s actual final rendered frame. End and begin with the same gentle forward drift. No connectors.
+- Architecture A: each next leg starts from the previous leg’s actual final rendered
+  frame. End and begin with the same gentle forward drift. No connectors. For Seedance
+  legs after the first, also pass that scene’s approved still as a non-boundary image
+  reference so the new environment remains visually controlled. Never substitute it for
+  the previous leg’s exact start frame. Kling lacks this separate image-reference input
+  and therefore relies more heavily on the prompt.
 - Architecture B: connector start = previous dive’s actual final frame; connector end = next dive’s actual first frame. Never use the original concept still as a connector endpoint.
 
 Use one frame-locking video model across the chain. Supported roster: `seedance_2_0`, `seedance_2_0_mini`, `kling3_0`. Verify the current model schema before the first candidate. A requested alternative is valid only if its start/end conditioning satisfies the chosen architecture.
 
-Keep raw outputs. Encode desktop H.264 at native resolution, CRF about 20, GOP 8, fixed keyframe interval, yuv420p, no audio, faststart, with restrained sharpening. Native mobile is portrait, typically 720 px wide, CRF about 23, GOP 4. Do not use all-intra or upscale native 720p output. The engine fetches clips to Blob URLs so seekability does not depend on host byte-range support.
+Keep raw outputs. Retain 4K as an archive/crop master; normally deliver the desktop
+background at no more than 1080p unless measurement justifies more. Encode H.264 at CRF
+about 20, GOP 8, fixed keyframe interval, yuv420p, no audio, faststart, with restrained
+sharpening. Native mobile is portrait, typically 720 px wide, CRF about 23, GOP 4. Never
+upscale a lower-resolution source. Do not use all-intra without measured evidence. The
+engine fetches clips to Blob URLs so seekability does not depend on host byte-range support.
 
-Generate responsive first-still sources (at least 640, 960, and full width), dimensions, and a tiny blurred placeholder. The placeholder is the initial CSS background, not a replacement for the eagerly loaded high-priority first image.
+After videos are approved, extract posters from each approved section clip’s exact frame 0;
+do not publish the 3:2 concept inputs as video posters. Generate desktop first-picture
+sources at 640, 960, and full width, plus a tiny blurred placeholder. For native mobile,
+also generate portrait first-picture sources (normally 480 and 720 wide) and a portrait
+LQIP. The placeholder is the initial CSS background, not a replacement for the eagerly
+loaded high-priority first image.
 
 ## Phase 5 — Integrate with Blazor
 
 Read `references/blazor-integration.md` completely. Copy/adapt:
 
-- `references/scrub-engine.js` → the client source tree.
-- `assets/blazor/scroll-world-index.js.template` → a project-specific config/mount module.
-- `assets/blazor/app-bootstrap.js` → the main JS entry.
+- `references/scrub-engine.js` → `wwwroot/js/scrollWorld/engine.js`.
+- `assets/blazor/scroll-world-index.js.template` → `wwwroot/js/scrollWorld/index.js`.
+- `assets/blazor/app-bootstrap.js` → `wwwroot/js/app-bootstrap.js`.
 - `assets/blazor/BlazorWarmup.razor` → a shared client component.
 - `assets/blazor/Home.razor.template` → the homepage structure.
 - `assets/blazor/scroll-world.css.template` → critical first-frame/LQIP and theme CSS.
@@ -169,7 +216,12 @@ Read `references/blazor-integration.md` completely. Copy/adapt:
 
 Replace every `{{PLACEHOLDER}}`; never ship template tokens. Keep the config data-driven. Tune `scroll`, `linger`, and `focus` against actual rendered frames rather than assuming equal pacing. A scene’s copy transition is boundary-based; `linger` affects video time only.
 
-Use the project’s existing JS bundler if present. If it has none, the templates are browser-valid ES modules and can live under `wwwroot/js`. Remove the stock `<ResourcePreloader />` and stock `blazor.web.js` script. Load only the application module normally; it loads `blazor.web.js` away from a fresh homepage.
+Use the project’s existing JS/CSS bundler if present and keep equivalent resolved import
+paths. If it has none, the templates are browser-valid ES modules under `wwwroot/js`.
+Include the project-specific scroll-world CSS in the existing stylesheet pipeline or root
+head and verify its LQIP appears before JavaScript. Remove the stock
+`<ResourcePreloader />` and stock `blazor.web.js` script. Load only the application module
+normally; it loads `blazor.web.js` away from a fresh homepage.
 
 ## Phase 6 — Test and tune
 
@@ -178,6 +230,7 @@ Read `references/qa.md`. Add regression tests in the repository’s established 
 Verify in a real browser, not only unit tests:
 
 - Slow wheel, rapid wheel bursts, reversing direction, scrollbar drag, middle-button autoscroll, route dots, touch, keyboard, reduced motion.
+- Visible keyboard focus and programmatic current state for route controls.
 - Copy changes exactly at boundaries and remains fully settled otherwise.
 - Every scene’s meaningful stop, especially the finale; tune `focus` visually.
 - Home → other route starts at 0 without a visible pre-navigation rush; other route → home also starts at 0.
@@ -188,11 +241,12 @@ Verify in a real browser, not only unit tests:
 - Seams in both directions, desktop and opted-in mobile.
 
 Build and run all relevant tests. Run Lighthouse against the homepage in a production build
-for performance, accessibility, best practices, and SEO; inspect the homepage SSR HTML as a
-crawler; validate its JSON-LD and links. Aim for all Lighthouse categories ≥95, LCP <1 s on
-the local production profile when realistic, CLS <0.1, INP <200 ms, no long tasks during
-scroll, and no framework cost on a fresh homepage. These are measured targets, not a licence
-to hide content or falsify results. Report results and remaining media/CDN risks honestly.
+with consistent desktop and mobile profiles for performance, accessibility, best practices,
+and SEO; inspect the homepage SSR HTML as a crawler; validate its JSON-LD and links. Aim for
+all Lighthouse categories ≥95, local desktop LCP <1 s when realistic, CLS <0.1, INP
+<200 ms, no long tasks during scroll, and no framework cost on a fresh homepage. These are
+measured targets—not a promise of sub-second field/mobile LCP or a licence to hide content
+or falsify results. Report results and remaining media/CDN risks honestly.
 
 ## Phase 7 — Handoff
 
@@ -203,7 +257,9 @@ Deliver:
 - Build/test/Lighthouse/network results.
 - Credit use and rerolls.
 - Any deployment assumptions. For a CDN such as Bunny, recommend versioned immutable URLs, Brotli for text assets, correct MIME/CORS, long cache lifetimes, and byte-range support; Blob loading still provides robust local seekability.
-- A clear note if mobile is desktop fallback/crop rather than native portrait, or if contact remains demo-only.
+- A clear note if mobile is desktop fallback/crop rather than native portrait.
+- A clear boundary note that substantive supporting pages and site-wide SEO/AEO remain
+  outside this skill.
 
 Do not claim completion until the solution builds, relevant automated tests pass, browser behaviour is verified, and the fresh-home no-Blazor network assertion passes.
 
