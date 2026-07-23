@@ -30,7 +30,7 @@ Collect and write down:
   wiring + the full mobile QA. The §6 crop encodes are a no-credits stopgap only.
 - `REVISION_ALLOWANCE` — normally 25–50% beyond the accepted-clip base count for
   production, increased for ambitious motion. This is budget headroom, never permission
-  to batch: every candidate still goes through `review-workflow.md`.
+  to batch: every still and video candidate goes through `review-workflow.md` individually.
 
 ## Style preamble (default: clay diorama)
 
@@ -71,6 +71,12 @@ Tips:
   the portrait renders open cleanly from the same still, and it keeps the dive's focal
   point where the camera actually flies.
 - Aspect `3:2`, `--resolution 2k --quality high`.
+
+Generate one still candidate only, present the actual image with prompt/model/dimensions/
+quality/cost, and wait for explicit thumbs-up or thumbs-down. Preserve rejected revisions.
+Only approved stills may condition video. After every scene still is individually approved,
+present an approved-files-only contact sheet and wait for separate cohesion approval before
+generating video.
 
 ## Leg prompt — architecture A, continuous forward take (SKILL Phase 4)
 

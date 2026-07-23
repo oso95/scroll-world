@@ -1,7 +1,7 @@
 {
   "name": "scroll-world",
-  "description": "Build a complete Blazor Web App around an immersive Higgsfield-generated scroll-scrubbed camera flight, including full service/contact pages, SSR-first SEO/AEO, InteractiveAuto lifecycle, performance hardening, and regression QA.",
-  "version": "1.1.0",
+  "description": "Build a production-quality homepage in a Blazor Web App around an immersive Higgsfield-generated scroll-scrubbed camera flight, including approval-gated media, homepage SSR/SEO/AEO, InteractiveAuto lifecycle, performance hardening, and regression QA.",
+  "version": "1.2.0",
   "author": {
     "name": "PinguApps"
   },

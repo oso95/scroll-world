@@ -1,20 +1,24 @@
 ---
 name: scroll-world
-description: Build a production-quality Blazor Web App whose homepage is an immersive Higgsfield-generated, scroll-scrubbed camera flight. Use for scroll cinematics, 3D or diorama worlds, fly-through landing pages, or turning a business journey into an interactive world. Covers discovery, brand identity, seamless media generation, responsive encoding, a proven smooth scroll engine, SSR-first SEO/AEO, full service and contact pages, Blazor InteractiveAuto lifecycle, accessibility, regression tests, and Lighthouse/browser QA.
+description: Build a production-quality immersive Higgsfield-generated, scroll-scrubbed homepage in a Blazor Web App. Use for scroll cinematics, 3D or diorama worlds, fly-through landing pages, or turning a business journey into an interactive homepage. Covers discovery, brand identity, approval-gated still/video generation, responsive encoding, a proven smooth scroll engine, homepage SSR/SEO/AEO, Blazor InteractiveAuto lifecycle, accessibility, regression tests, and Lighthouse/browser QA. Supporting pages are outside scope except minimal placeholders needed for navigation.
 ---
 
 # Scroll World for Blazor
 
-Build the whole public-facing Blazor site, not just a visual demo:
+Build and integrate one exceptional homepage:
 
 - A spectacular scroll-scrubbed homepage.
 - Server-rendered, crawlable homepage copy and metadata.
-- Full-information pages for each material service or offer.
-- A contact page with appropriate Blazor interactivity.
+- Existing destinations reused where available; missing destinations may be minimal placeholder routes.
 - A homepage that does not download or start Blazor on a fresh direct visit.
 - Blazor InteractiveAuto on interactive pages; once started, it remains available when enhanced navigation returns home.
 - Smooth, accumulated wheel scrolling with native touch and middle-button autoscroll.
-- Verified performance, accessibility, SEO/AEO, media lifecycle, and route behaviour.
+- Verified homepage performance, accessibility, SEO/AEO, media lifecycle, and route behaviour.
+
+Do not design or write substantive service, about, contact, legal, blog, or other supporting
+pages. Do not take ownership of site-wide SEO/AEO, schema, robots, or sitemap work. Preserve
+existing pages and SEO infrastructure unless a homepage integration change strictly requires
+touching them.
 
 The camera moves in pre-rendered video. Scroll controls time. The page never renders 3D in real time.
 
@@ -86,40 +90,58 @@ Ask only decisions that change the result. Group questions into short rounds.
    Never mix still models/sources within one chain.
    Ask whether to use standard or high source bitrate where the model exposes it. Disable
    generated audio: the homepage is muted and audio can materially increase credit cost.
-7. Contact handling, always ask: demo-only (validation + toast; nothing sent/stored) or connect to the project’s approved backend. Default to demo-only until delivery/security requirements are explicit.
-8. Deployment/media origin: local assets for development or a CDN. Capture the canonical production origin for metadata, robots, sitemap, and JSON-LD.
+7. CTA destinations: reuse existing routes/external destinations, or ask permission to create
+   minimal “Coming soon” placeholders for missing internal routes. A placeholder contains only
+   a heading, short status sentence, and link home; never turn it into a substantive page.
+8. Deployment/media origin: local assets for development or a CDN. Capture the canonical
+   production origin for homepage canonical/social metadata and homepage JSON-LD.
 
 Calculate `N stills + (2N−1) accepted videos` for architecture B, or `N stills + N accepted sequential legs` for A; double accepted video work for native mobile. Show base cost separately from a realistic revision allowance (normally 25–50% for production review; more for ambitious motion). Calibrate with one approved still and one approved video because live prices vary. Stop for approval before paid generation.
 
 Write down the approved choices and success criteria before generating.
 
-## Phase 3 — Design the whole site
+## Phase 3 — Design the homepage
 
-Create a distinctive identity and information architecture before media. The homepage is the “look at me” overview; it must link to substantive pages for every material offer and contact.
+Create a distinctive identity and homepage story before media. The homepage is the “look at
+me” overview. Its links may target existing pages, approved external destinations, or minimal
+placeholder routes.
 
-For each service page include: clear audience/problem, outcomes, process, deliverables, boundaries, proof or honest placeholders, related services, FAQs based on real buyer questions, and a contextual CTA. Avoid thin pages, keyword stuffing, invented testimonials, fake reviews, fake pricing, fake credentials, or unsupported claims.
+Write only the concise content needed by the cinematic sections and semantic homepage layer.
+Avoid keyword stuffing, invented testimonials, fake reviews, fake pricing, fake credentials,
+or unsupported claims. Do not flesh out linked pages.
 
-Implement per-page title, description, canonical, Open Graph/Twitter metadata, accessible heading hierarchy, breadcrumbs, and only truthful JSON-LD. Add `Organization`/`LocalBusiness` as appropriate, `WebSite`, `WebPage`, `Service`, `BreadcrumbList`, and `FAQPage` only where visible FAQ content exists. Add robots and sitemap entries for every public page. Read `references/site-foundation.md` before implementation.
+Implement homepage title, description, canonical, Open Graph/Twitter metadata, accessible
+heading hierarchy, and only truthful homepage JSON-LD. Use `WebPage`, `WebSite`, and a
+truthful `Organization`/`LocalBusiness` only when the required facts are supplied. Do not
+create or overhaul site-wide robots, sitemap, breadcrumbs, service schema, FAQ schema, or
+supporting-page metadata. Report any existing crawl rule that blocks the homepage. Read
+`references/homepage-foundation.md` before implementation.
 
 ## Phase 4 — Generate a seamless media chain
 
 Read `references/prompts.md`, `references/pipeline.md`, and `references/media-gotchas.md` completely before generating.
 
-Use one byte-identical style preamble, palette, lens/lighting language, and still source throughout. Review all stills as a contact sheet before video.
+Use one byte-identical style preamble, palette, lens/lighting language, and still source
+throughout. Generate and approve stills through `references/review-workflow.md`, exactly one
+candidate at a time. After every still is individually approved, present a contact sheet of
+approved stills for final world-level cohesion approval. Do not begin video generation before
+that approval.
 
-Generate videos through the approval gate in `references/review-workflow.md`. Never batch,
-parallelize, queue, or automatically continue through paid video generations:
+Generate all media through the approval gate in `references/review-workflow.md`. Never batch,
+parallelize, queue, or automatically continue through still or video generations:
 
-1. Generate exactly one candidate.
-2. Download it, create review frames/proxy, and present the video with its prompt, model,
-   resolution, duration, revision number, and measured credit deduction.
+1. Generate exactly one image or video candidate.
+2. Download it and present the actual candidate with its prompt, model/source, dimensions,
+   quality/settings, revision number, and measured credit deduction where applicable. For
+   video, also create review frames/proxy and report duration.
 3. Wait for an explicit thumbs-up/approval or thumbs-down with feedback.
 4. On rejection, preserve the old candidate, record the fault, revise only what the
    feedback warrants, and generate one replacement within the approved revision budget.
-5. Only an approved candidate may provide a boundary frame or allow the next video to begin.
+5. Only an approved still may condition a video. Only an approved video may provide a
+   boundary frame or allow the next video to begin.
 
-Draft approval does not approve the production render: every re-rendered 1080p/4K candidate
-must be reviewed again. Desktop approval does not approve the native portrait version.
+Approval never transfers to a stochastic re-render: final-resolution images/videos and native
+portrait variants require their own review. Desktop approval does not approve mobile.
 
 The seam rule is absolute:
 
@@ -143,7 +165,7 @@ Read `references/blazor-integration.md` completely. Copy/adapt:
 - `assets/blazor/Home.razor.template` → the homepage structure.
 - `assets/blazor/scroll-world.css.template` → critical first-frame/LQIP and theme CSS.
 - `assets/blazor/App.razor.integration.template` → root SSR/runtime wiring.
-- `assets/blazor/Contact.razor.template` → demo-safe InteractiveAuto form behaviour.
+- `assets/blazor/Placeholder.razor.template` → optional minimal destination for a missing route.
 
 Replace every `{{PLACEHOLDER}}`; never ship template tokens. Keep the config data-driven. Tune `scroll`, `linger`, and `focus` against actual rendered frames rather than assuming equal pacing. A scene’s copy transition is boundary-based; `linger` affects video time only.
 
@@ -165,13 +187,18 @@ Verify in a real browser, not only unit tests:
 - Only nearby clips remain loaded; leaving home aborts/revokes everything.
 - Seams in both directions, desktop and opted-in mobile.
 
-Build and run all relevant tests. Run Lighthouse in a production build for performance, accessibility, best practices, and SEO; inspect the SSR HTML as a crawler; validate JSON-LD and links. Aim for all Lighthouse categories ≥95, LCP <1 s on the local production profile when realistic, CLS <0.1, INP <200 ms, no long tasks during scroll, and no framework cost on a fresh homepage. Report measured results and remaining media/CDN risks honestly.
+Build and run all relevant tests. Run Lighthouse against the homepage in a production build
+for performance, accessibility, best practices, and SEO; inspect the homepage SSR HTML as a
+crawler; validate its JSON-LD and links. Aim for all Lighthouse categories ≥95, LCP <1 s on
+the local production profile when realistic, CLS <0.1, INP <200 ms, no long tasks during
+scroll, and no framework cost on a fresh homepage. These are measured targets, not a licence
+to hide content or falsify results. Report results and remaining media/CDN risks honestly.
 
 ## Phase 7 — Handoff
 
 Deliver:
 
-- The finished Blazor site and generated assets.
+- The finished Blazor homepage integration and generated assets.
 - A short list of approved choices and tuned per-section pacing/focus values.
 - Build/test/Lighthouse/network results.
 - Credit use and rerolls.
@@ -186,7 +213,7 @@ Do not claim completion until the solution builds, relevant automated tests pass
 - `references/pipeline.md` — Higgsfield, frame extraction, encoding, native mobile chain.
 - `references/scrub-engine.js` — canonical engine; copy rather than reimplement.
 - `references/blazor-integration.md` — exact SSR/InteractiveAuto and enhanced-navigation wiring.
-- `references/site-foundation.md` — full pages, SEO/AEO, schema, accessibility, LQIP, CDN.
+- `references/homepage-foundation.md` — homepage SSR/SEO/AEO, accessibility, LQIP, and CDN.
 - `references/qa.md` — regression and browser/performance matrix.
 - `references/media-gotchas.md` — generation, seam, encoder, and device failure guide.
 - `references/review-workflow.md` — mandatory one-candidate-at-a-time approval ledger.

@@ -61,5 +61,5 @@ test("engine retains lifecycle and resource-release contracts", () => {
   assert.match(engineSource, /function scheduleScrub\(\)/);
 });
 
-// Add source-contract tests for the project bootstrap, App.razor, SSR routes,
-// robots, sitemap, and generated config as listed in references/qa.md.
+// Add source-contract tests for the project bootstrap, App.razor, homepage SSR
+// metadata/content, approved links, and generated config as listed in references/qa.md.

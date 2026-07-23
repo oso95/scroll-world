@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "scroll-world",
-  "description": "Complete Blazor sites with immersive Higgsfield scroll cinematics.",
+  "description": "Production-quality Blazor homepages with immersive Higgsfield scroll cinematics.",
   "owner": {
     "name": "PinguApps"
   },
@@ -10,7 +10,7 @@
       "name": "scroll-world",
       "source": "./",
       "skills": ["./skills/scroll-world"],
-      "description": "Build a complete Blazor Web App with a seamless generated camera-flight homepage, full service/contact pages, SSR-first SEO/AEO, InteractiveAuto lifecycle, performance hardening, and regression QA.",
+      "description": "Build a seamless generated camera-flight homepage in a Blazor Web App with approval-gated media, homepage SSR/SEO/AEO, InteractiveAuto lifecycle, performance hardening, and regression QA.",
       "category": "design"
     }
   ]

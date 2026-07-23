@@ -1,0 +1,7 @@
+@page "{{PLACEHOLDER_ROUTE}}"
+
+<main class="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-20">
+    <h1 class="text-4xl font-semibold tracking-tight">{{PLACEHOLDER_TITLE}}</h1>
+    <p class="mt-4 text-lg">{{PLACEHOLDER_MESSAGE}}</p>
+    <a class="mt-8 underline underline-offset-4" href="/">Back to the homepage</a>
+</main>

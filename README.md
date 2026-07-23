@@ -2,9 +2,9 @@
 
 https://github.com/user-attachments/assets/b08e641e-985b-4bd4-83ff-6750272d0c37
 
-An agent skill for building a complete, production-minded **Blazor Web App** around an immersive scroll-scrubbed camera flight.
+An agent skill for building a production-minded immersive scroll-scrubbed **homepage** in a Blazor Web App.
 
-As a visitor scrolls, a pre-rendered camera moves through a connected generated world. The experience can use an isometric diorama, grounded architectural walkthrough, or another approved art direction. The skill handles the business/brand discovery, frame-locked Higgsfield media pipeline, responsive encoding, the proven scroll engine, full service/contact pages, SSR-first SEO/AEO, Blazor InteractiveAuto lifecycle, tests, and performance QA.
+As a visitor scrolls, a pre-rendered camera moves through a connected generated world. The experience can use an isometric diorama, grounded architectural walkthrough, or another approved art direction. The skill handles business/brand discovery, approval-gated image and video generation, responsive encoding, the proven scroll engine, homepage SSR/SEO/AEO, Blazor InteractiveAuto lifecycle, tests, and performance QA.
 
 ## Install
 
@@ -41,12 +41,14 @@ It produces:
 
 - A cinematic scroll-scrubbed homepage.
 - Semantic SSR homepage content and responsive first-frame/LQIP delivery.
-- Full-information pages for each real service or offer.
-- A validated InteractiveAuto contact page (demo-only or connected, by explicit choice).
-- Canonical/social metadata, truthful JSON-LD, robots, sitemap, internal links, accessibility, and reduced-motion support.
+- Homepage canonical/social metadata, truthful homepage JSON-LD, approved links, accessibility, and reduced-motion support.
+- Optional minimal “Coming soon” placeholder routes where homepage navigation needs a missing destination.
 - A lifecycle-safe scroll engine limited to home; native scroll everywhere else.
 - A fresh homepage that does not start/download Blazor, while interactive pages use Auto and retain the runtime when navigating back home.
 - Behavioural regression tests plus browser, network, seam, and Lighthouse checks.
+
+It does not flesh out service, contact, about, legal, blog, or other supporting pages, and
+does not take ownership of site-wide SEO/AEO, robots, sitemap, or supporting-page schema.
 
 ## Requirements
 
@@ -69,10 +71,11 @@ Every run explicitly chooses:
 
 The seam rule is strict: neighbouring clips share actual rendered boundary frames. Scroll scrubs the resulting video; it does not render 3D in the browser.
 
-Paid videos are never blasted through as a batch. The skill generates one candidate,
-shows it with its prompt/settings/cost, and waits for a thumbs-up or thumbs-down with
-feedback. Rejected revisions are preserved and logged; only an explicitly approved clip
-can unlock the next dependent generation.
+Generated images and paid videos are never blasted through as a batch. The skill generates
+one candidate, shows it with its prompt/settings/cost, and waits for a thumbs-up or
+thumbs-down with feedback. Rejected revisions are preserved and logged. Only approved
+stills may condition video, and only an explicitly approved clip can unlock the next
+dependent generation.
 
 ## Proven interaction defaults
 
@@ -97,7 +100,7 @@ skills/scroll-world/
 │   │   ├── scroll-world.css.template
 │   │   ├── App.razor.integration.template
 │   │   ├── BlazorWarmup.razor
-│   │   ├── Contact.razor.template
+│   │   ├── Placeholder.razor.template
 │   │   └── Home.razor.template
 │   └── tests/scroll-world-engine.test.mjs.template
 └── references/
@@ -105,7 +108,7 @@ skills/scroll-world/
     ├── pipeline.md
     ├── scrub-engine.js
     ├── blazor-integration.md
-    ├── site-foundation.md
+    ├── homepage-foundation.md
     ├── qa.md
     ├── media-gotchas.md
     ├── review-workflow.md

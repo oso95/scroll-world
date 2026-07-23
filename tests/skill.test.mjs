@@ -24,7 +24,7 @@ test("skill frontmatter is portable and Blazor-specific", () => {
 test("plugin metadata identifies the Blazor-first PinguApps fork", async () => {
   const plugin = JSON.parse(await readFile(new URL("../.claude-plugin/plugin.json", import.meta.url), "utf8"));
   const marketplace = JSON.parse(await readFile(new URL("../.claude-plugin/marketplace.json", import.meta.url), "utf8"));
-  assert.equal(plugin.version, "1.1.0");
+  assert.equal(plugin.version, "1.2.0");
   assert.equal(plugin.author.name, "PinguApps");
   assert.equal(plugin.homepage, "https://github.com/PinguApps/scroll-world");
   assert.match(plugin.description, /Blazor Web App/);
@@ -37,7 +37,7 @@ test("all routed resources and templates exist", async () => {
     "references/pipeline.md",
     "references/scrub-engine.js",
     "references/blazor-integration.md",
-    "references/site-foundation.md",
+    "references/homepage-foundation.md",
     "references/qa.md",
     "references/media-gotchas.md",
     "references/review-workflow.md",
@@ -46,7 +46,7 @@ test("all routed resources and templates exist", async () => {
     "assets/blazor/scroll-world-index.js.template",
     "assets/blazor/scroll-world.css.template",
     "assets/blazor/App.razor.integration.template",
-    "assets/blazor/Contact.razor.template",
+    "assets/blazor/Placeholder.razor.template",
     "assets/blazor/BlazorWarmup.razor",
     "assets/blazor/Home.razor.template",
     "assets/tests/scroll-world-engine.test.mjs.template",
@@ -139,31 +139,47 @@ test("project templates retain performance and crawlability defaults", () => {
   assert.match(homeTemplate, /data-scroll-world-first-picture/);
   assert.match(homeTemplate, /fetchpriority="high"/);
   assert.match(homeTemplate, /<h1>/);
-  assert.match(homeTemplate, /\/services\//);
-  assert.match(homeTemplate, /\/contact/);
+  assert.match(homeTemplate, /SECTION_1_CTA_HREF/);
+  assert.match(homeTemplate, /PRIMARY_CTA_HREF/);
+  assert.doesNotMatch(homeTemplate, /\/services\//);
+  assert.doesNotMatch(homeTemplate, /href="\/contact"/);
 });
 
-test("contact template is InteractiveAuto, validated, and demo-safe", async () => {
-  const contactTemplate = await read("assets/blazor/Contact.razor.template");
-  assert.match(contactTemplate, /@rendermode InteractiveAuto/);
-  assert.match(contactTemplate, /DataAnnotationsValidator/);
-  assert.match(contactTemplate, /disabled="@\(!IsInteractive\)"/);
-  assert.match(contactTemplate, /Nothing is sent or stored/);
-  assert.match(contactTemplate, /role="status" aria-live="polite"/);
-  assert.match(contactTemplate, /intentionally sends and stores nothing/);
+test("supporting routes are optional minimal placeholders, not full pages", async () => {
+  const placeholderTemplate = await read("assets/blazor/Placeholder.razor.template");
+  const homepageFoundation = await read("references/homepage-foundation.md");
+  assert.match(skillSource, /Build and integrate one exceptional homepage/);
+  assert.match(skillSource, /Do not design or write substantive service, about, contact/);
+  assert.match(skillSource, /Do not take ownership of site-wide SEO\/AEO/);
+  assert.doesNotMatch(skillSource, /Full-information pages/);
+  assert.doesNotMatch(skillSource, /Design the whole site/);
+  assert.match(placeholderTemplate, /Coming soon|PLACEHOLDER_MESSAGE/);
+  assert.match(placeholderTemplate, /Back to the homepage/);
+  assert.doesNotMatch(placeholderTemplate, /@rendermode|EditForm|DataAnnotationsValidator/);
+  assert.match(homepageFoundation, /Do not write substantive service, about, contact/);
+  assert.match(homepageFoundation, /Do not take ownership of robots\.txt or/);
 });
 
-test("paid video generation is one-at-a-time and approval-gated", async () => {
+test("image and video generation are one-at-a-time and approval-gated", async () => {
   const pipeline = await read("references/pipeline.md");
   const review = await read("references/review-workflow.md");
-  assert.match(skillSource, /Generate exactly one candidate/);
+  assert.match(skillSource, /Generate exactly one image or video candidate/);
   assert.match(skillSource, /thumbs-up\/approval or thumbs-down/);
-  assert.match(skillSource, /Draft approval does not approve the production render/);
-  assert.match(pipeline, /Never launch a whole video loop/);
+  assert.match(skillSource, /Only an approved still may condition a video/);
+  assert.match(skillSource, /Approval never transfers to a stochastic re-render/);
+  assert.match(pipeline, /Never launch an image or video generation/);
+  assert.match(pipeline, /gen_still_candidate farm r01/);
+  assert.match(pipeline, /approved-stills\.txt/);
+  assert.match(pipeline, /contact sheet/);
+  assert.doesNotMatch(pipeline, /for n in \$NAMES; do gen_still/);
+  assert.doesNotMatch(pipeline, /parallelize in small batches/);
   assert.doesNotMatch(pipeline, /for n in \$NAMES; do gen_dive/);
   assert.doesNotMatch(pipeline, /gen_conn .* &/);
   assert.match(review, /Silence, elapsed time, or a technically valid render is never approval/);
   assert.match(review, /approval-ledger\.md/);
+  assert.match(review, /Generate and approve every still individually/);
+  assert.match(review, /contact sheet containing only those approved files/);
+  assert.match(review, /Every generated still and paid video candidate/);
   assert.match(review, /every downstream leg is invalid/);
   assert.match(review, /Desktop approval never carries over to\s+portrait/);
 });

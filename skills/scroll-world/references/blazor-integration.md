@@ -55,7 +55,8 @@ The SSR homepage contains:
 - One stable container with a unique ID and `data-scroll-world="{{WORLD_KEY}}"`.
 - A first-frame wrapper marked `data-scroll-world-first-frame`.
 - A responsive `<picture data-scroll-world-first-picture>` with the `<img data-scroll-world-first-still>`.
-- A semantic SSR copy section containing the real H1, all section summaries, and links to service/contact pages.
+- A semantic SSR copy section containing the real H1, every section summary, and approved
+  homepage links. Destinations may be existing pages, external URLs, or minimal placeholders.
 
 The JS engine adopts that existing `<picture>` into its first scene. It marks the generated visual copy layer `aria-hidden` and makes duplicate JS CTAs untabbable, so search engines and assistive technology use the SSR source without duplicate focus targets.
 
@@ -65,7 +66,7 @@ The first-frame wrapper needs a full-viewport background using the tiny blurred 
 
 - A first visit to home has no Blazor runtime, so links perform full navigation naturally.
 - Once Blazor has started, enhanced navigation may be used normally.
-- External/service links in `navLinks` are anchors; route dots are buttons that animate within home.
+- Destination links in `navLinks` are anchors; route dots are buttons that animate within home.
 - Native scroll applies outside the scroll-world container/route because the engine has been disposed.
 - Do not add global `scroll-behavior: smooth`; it conflicts with exact engine and navigation ownership.
 

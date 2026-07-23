@@ -1,24 +1,26 @@
-# Approval-gated video review
+# Approval-gated media review
 
-Every paid video candidate is a human review checkpoint. Never batch, parallelize, queue,
-or auto-continue video generation, even when the model/account supports concurrency.
+Every generated still and paid video candidate is a human review checkpoint. Never batch,
+parallelize, queue, or auto-continue image or video generation, even when the provider,
+account, or tool supports concurrency.
 
 ## Candidate cycle
 
 1. Generate one candidate only. Name it by slot and revision, for example
-   `desktop-dive-shop-r01.mp4` or `mobile-connector-03-r02.mp4`. Never overwrite a prior
-   candidate.
+   `desktop-still-shop-r01.png`, `desktop-dive-shop-r01.mp4`, or
+   `mobile-connector-03-r02.mp4`. Never overwrite a prior candidate.
 2. Record model, mode, resolution, bitrate, duration, aspect ratio, prompt, input hashes,
-   job ID, pre/post credit balance, measured cost, output path, and creation time.
-3. Create a lightweight review proxy if the raw file is awkward to display, plus first,
-   25%, 50%, 75%, and final-frame stills. For seams, also show the required endpoint
-   beside the candidate endpoint.
-4. Present the actual video in chat and ask for:
+   quality, job ID, pre/post credit balance, measured cost, output path, and creation time.
+   Mark fields that do not apply to a still as such.
+3. Present the actual full-resolution still in chat. For video, create a lightweight review
+   proxy if the raw file is awkward to display, plus first, 25%, 50%, 75%, and final-frame
+   stills. For seams, also show the required endpoint beside the candidate endpoint.
+4. Ask for:
    - 👍 Approve.
    - 👎 Reject, followed by what is wrong.
    - Optional structured notes: camera movement, speed, composition, scene fidelity,
-     style/colour consistency, artifacts, people/text/logos, opening frame, final frame,
-     or seam continuity.
+     style/colour consistency, artifacts, people/text/logos, framing/crop, opening frame,
+     final frame, or seam continuity.
 5. Stop. Silence, elapsed time, or a technically valid render is never approval.
 6. On approval, mark the exact candidate immutable in the ledger. Only then continue.
 7. On rejection, preserve it and log the notes. If the feedback is precise and the
@@ -28,10 +30,20 @@ or auto-continue video generation, even when the model/account supports concurre
 8. Repeat until approved or the user explicitly abandons/substitutes that slot.
 
 Maintain `review/approval-ledger.md` (or equivalent project artifact) with one row per
-candidate: slot, orientation, revision, job ID, settings, credits, status, feedback, and
-approved filename. Include rejected generations in final credit reporting.
+image or video candidate: media type, slot, orientation, revision, job ID, settings,
+credits, status, feedback, and approved filename. Include rejected generations in final
+credit reporting.
 
 ## Dependency rules
+
+### Scene stills
+
+Generate and approve every still individually before generating any video that uses it.
+An approval locks the exact pixels, not merely the prompt. After all stills are individually
+approved, show a contact sheet containing only those approved files and request a separate
+world-level cohesion approval. If a still is reopened after video generation starts, every
+video directly or transitively conditioned by that still is potentially invalid; identify
+and cost affected regeneration before proceeding.
 
 ### Architecture A — continuous legs
 
@@ -49,9 +61,9 @@ that connector.
 
 ### Draft to production
 
-Use an approved draft to validate story, prompt, and motion intent, but production is a
-new stochastic render. Review every final-resolution clip independently. Do not upscale a
-draft and call it the production master.
+Use an approved draft image/video to validate story, composition, prompt, and motion intent,
+but production is a new stochastic render. Review every final-resolution candidate
+independently. Do not upscale a draft and call it the production master.
 
 ### Desktop and native mobile
 
@@ -64,6 +76,9 @@ visual approval because it may lose the focal subject.
 
 Approve only when:
 
+- Every still clearly represents its intended section, respects the approved composition,
+  palette and art direction, contains no unwanted text/logos/artifacts, and has enough safe
+  framing for its target orientation.
 - The opening frame matches its required source.
 - The intended subject/action is readable throughout.
 - Camera velocity and direction satisfy the handoff contract.
@@ -72,5 +87,5 @@ Approve only when:
 - Architecture B connectors match both boundary frames and read naturally in both scroll
   directions.
 
-After all candidates are approved, encode only the approved filenames. Never let a shell
-glob accidentally select a rejected revision.
+After all candidates are approved, process and encode only the approved filenames. Never let
+a shell glob accidentally select a rejected image or video revision.

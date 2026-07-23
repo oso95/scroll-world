@@ -18,8 +18,10 @@ Copy/adapt `assets/tests/scroll-world-engine.test.mjs.template` into the project
 - Bootstrap does not start Blazor when the initial first-still marker exists.
 - Bootstrap starts Blazor manually elsewhere, registers lifecycle after `Blazor.start()`, disposes at navigation start, and resets instantly before remount at end.
 - Root routes remain static SSR while an InteractiveAuto warmup descriptor exists.
-- SSR homepage links to every public service/contact route.
-- Robots and sitemap contain the approved production origin/routes.
+- SSR homepage contains every cinematic section and uses only valid approved destinations.
+- Homepage title, description, canonical, social metadata, H1, and truthful JSON-LD are
+  present before JavaScript.
+- Supporting routes remain untouched except explicitly approved minimal placeholders.
 
 Follow existing repository requirements. If Blazor tests use Reqnroll + bUnit, write business-readable feature scenarios and step definitions instead of direct code-first tests.
 
@@ -37,9 +39,10 @@ At desktop width test:
 8. Click every route dot: approximately 1800 ms cinematic move to the chosen meaningful frame.
 9. Cross boundaries one pixel each way: copy fully transitions to the entered section, independent of further scrolling.
 10. At every seam capture frames immediately before/after while travelling both directions.
-11. Navigate home → service/contact: destination appears at y=0 with no visible outgoing-page rush.
+11. Navigate home → existing/placeholder destination: it appears at y=0 with no visible outgoing-page rush.
 12. On non-home pages, verify native wheel/touch/scrollbar behaviour and no engine media/listeners.
-13. Direct-load an interactive page, validate the form, then enhanced-navigate home: runtime remains, y=0, engine mounted.
+13. Direct-load an existing interactive page, when the project has one, then
+    enhanced-navigate home: runtime remains, y=0, engine mounted.
 
 Repeat essential loading/scroll checks at phone portrait/landscape. If native mobile media was purchased, verify portrait files and posters are actually selected (`videoWidth < videoHeight`), CPU throttle 4–6×, collapse the URL bar, rotate, and test iOS Safari priming. A desktop-only build still needs graceful phone fallback with no overlap/blank scene.
 
@@ -58,7 +61,11 @@ Record rather than eyeball:
 
 Run Lighthouse against the production endpoint with consistent desktop and mobile profiles. Report Performance, Accessibility, Best Practices, SEO, LCP, CLS, INP/TBT proxy, speed index, transfer size, request count, largest assets, unused JS/CSS, render blockers, and console/network errors. Targets are guardrails, not fabricated results: categories ≥95, local LCP <1 s where realistic, CLS <0.1, INP <200 ms.
 
-Inspect the raw initial HTML with an HTTP client: title, meta description, canonical, H1, service copy, internal links, and JSON-LD must be present before JS. Validate sitemap links and JSON-LD syntax/semantics.
+Inspect the raw initial homepage HTML with an HTTP client: title, meta description,
+canonical, social metadata, H1, every cinematic section summary, approved links, and
+homepage JSON-LD must be present before JS. Validate JSON-LD syntax/semantics. Inspect
+existing crawl controls only to report whether they block the homepage; do not turn this
+check into site-wide SEO work.
 
 ## Visual tuning pass
 

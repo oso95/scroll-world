@@ -43,59 +43,78 @@ case "$VMODEL" in
 esac
 ```
 
-Higgsfield generations take minutes. Run only the **single currently approved candidate**
-in a background/detached process and poll it. Never launch a whole video loop. Read
-`review-workflow.md`: after each candidate finishes, show it and stop for feedback.
+Higgsfield generations take minutes. Run only the **single currently authorized candidate**
+in a background/detached process and poll it. Never launch an image or video generation
+loop. Read `review-workflow.md`: after each candidate finishes, show it and stop for
+feedback.
 
 ## 1. Scene stills
 
-Write one prompt file per section to `$WORK/still_<name>.txt` (see prompts.md), then:
+Write one prompt file per section to `$WORK/still_<name>.txt` (see prompts.md). Generate
+one candidate, show it, and stop:
 
 ```bash
-gen_still() { # name
+gen_still_candidate() { # name revision
+  name="$1"; rev="$2"; base="$WORK/desktop-still-$name-$rev"
   if [ "$STILL_MODEL" = "gpt_image_2" ]; then
     image_opts="--resolution $STILL_RESOLUTION --quality $STILL_QUALITY"
   else
     image_opts="--resolution $STILL_RESOLUTION"
   fi
-  higgsfield generate create "$STILL_MODEL" --prompt "$(cat "$WORK/still_$1.txt")" \
+  higgsfield generate create "$STILL_MODEL" --prompt "$(cat "$WORK/still_$name.txt")" \
     --aspect_ratio 3:2 $image_opts --wait --wait-timeout 15m --json \
-    > "$WORK/still_$1.json" 2> "$WORK/still_$1.err"
-  url=$(jq -r '.[0].result_url // empty' "$WORK/still_$1.json")
-  [ -n "$url" ] && curl -fsSL "$url" -o "$WORK/still_$1.png" && echo "still $1 ok" || echo "still $1 FAIL"
+    > "$base.json" 2> "$base.err"
+  url=$(jq -r '.[0].result_url // empty' "$base.json")
+  [ -n "$url" ] && curl -fsSL "$url" -o "$base.png" || return 1
+  echo "STOP: present $base.png with prompt/settings/cost; wait for thumbs-up/down."
 }
-for n in $NAMES; do gen_still "$n" & done ; wait
+
+# Example: generate exactly one still candidate, then stop.
+gen_still_candidate farm r01
 ```
 
 Codex variant (STILLS_SOURCE=codex, SKILL Phase 2 — subscription-billed, zero
-credits; ~1–3 min each, parallelize in small batches):
+Higgsfield credits; still one candidate at a time):
 
 ```bash
-gen_still_codex() { # name
+gen_still_codex_candidate() { # name revision
+  name="$1"; rev="$2"; base="$WORK/desktop-still-$name-$rev"
   codex exec -C "$WORK" -s workspace-write --skip-git-repo-check \
-    'Use the image generation tool ($imagegen) to generate: '"$(cat "$WORK/still_$1.txt")"' Wide 3:2 landscape, high resolution. Save it as ./still_'"$1"'.png. Do not do anything else.' \
-    > "$WORK/still_$1.codex.log" 2>&1
-  [ -f "$WORK/still_$1.png" ] && echo "still $1 ok (codex)" || echo "still $1 FAIL (see .codex.log)"
+    'Use the image generation tool ($imagegen) to generate: '"$(cat "$WORK/still_$name.txt")"' Wide 3:2 landscape, high resolution. Save it as ./'"$(basename "$base")"'.png. Do not do anything else.' \
+    > "$base.codex.log" 2>&1
+  [ -f "$base.png" ] || { echo "still $name $rev FAIL (see .codex.log)"; return 1; }
+  echo "STOP: present $base.png with prompt/settings; wait for thumbs-up/down."
 }
+
+# Example: generate exactly one still candidate, then stop.
+gen_still_codex_candidate farm r01
 ```
 
-Create responsive WebP sources with ffmpeg (optionally run knockout.py first for transparency):
+After every still has individual 👍 approval, create and show a contact sheet containing
+only those approved files. Wait for a separate cohesion approval before any video
+generation. Build an exact approved-still manifest—never use a wildcard:
 
 ```bash
-for n in $NAMES; do
-  ffmpeg -v error -y -i "$WORK/still_$n.png" -vf "scale=1280:-2" -c:v libwebp -quality 84 "$ASSETS/stills/$n.webp"
-  ffmpeg -v error -y -i "$WORK/still_$n.png" -vf "scale=960:-2"  -c:v libwebp -quality 82 "$ASSETS/stills/$n-960.webp"
-  ffmpeg -v error -y -i "$WORK/still_$n.png" -vf "scale=640:-2"  -c:v libwebp -quality 80 "$ASSETS/stills/$n-640.webp"
-done
+APPROVED_STILLS="$WORK/approved-stills.txt"
+# One ledger-derived row per scene, in journey order:
+# farm|/tmp/scroll-world/desktop-still-farm-r02.png
+
+while IFS='|' read name source; do
+  [ -n "$source" ] || continue
+  ffmpeg -v error -y -i "$source" -vf "scale=1280:-2" -c:v libwebp -quality 84 "$ASSETS/stills/$name.webp"
+  ffmpeg -v error -y -i "$source" -vf "scale=960:-2"  -c:v libwebp -quality 82 "$ASSETS/stills/$name-960.webp"
+  ffmpeg -v error -y -i "$source" -vf "scale=640:-2"  -c:v libwebp -quality 80 "$ASSETS/stills/$name-640.webp"
+done < "$APPROVED_STILLS"
 
 # First-scene CSS blur-up placeholder. Keep the output roughly 1 KB or less.
-first=$(printf '%s\n' $NAMES | sed -n '1p')
-ffmpeg -v error -y -i "$WORK/still_$first.png" -vf "scale=32:-2,gblur=sigma=2" \
+IFS='|' read first first_source < "$APPROVED_STILLS"
+ffmpeg -v error -y -i "$first_source" -vf "scale=32:-2,gblur=sigma=2" \
   -c:v libwebp -quality 28 "$ASSETS/stills/$first-lqip.webp"
 ```
 
-Review the stills for cohesion before continuing. Re-roll any off-style one (optionally
-add `--image "$WORK/still_<good>.png"` to lock style).
+Optionally run `knockout.py` on an exact approved source before its WebP derivatives. If
+the contact-sheet review reopens a still, preserve the former approval, create one new
+revision, and repeat individual plus cohesion approval.
 
 ## 2A. Continuous forward legs — architecture A
 
@@ -119,7 +138,7 @@ gen_leg_candidate() { # name start-image revision
 }
 
 # Example: generate exactly one candidate, then stop.
-gen_leg_candidate farm "$WORK/still_farm.png" r01
+gen_leg_candidate farm "$WORK/desktop-still-farm-r02.png" r01
 ```
 
 After 👍 approval, record the exact candidate in the ledger. Its `*-last.png` may then
@@ -132,10 +151,10 @@ one incremented revision. Architecture A uses approved legs as section clips and
 Prompt files at `$WORK/dive_<name>.txt`. Start image = the solid-bg still PNG.
 
 ```bash
-gen_dive() { # name                       ($VOPTS is unquoted on purpose — word-split flags)
-  name="$1"; rev="$2"; base="$WORK/desktop-dive-$name-$rev"
+gen_dive() { # name approved-start-image revision ($VOPTS is intentionally word-split)
+  name="$1"; start="$2"; rev="$3"; base="$WORK/desktop-dive-$name-$rev"
   higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/dive_$name.txt")" \
-    --start-image "$WORK/still_$name.png" \
+    --start-image "$start" \
     $VOPTS --aspect_ratio 16:9 --duration "$DIVE_DUR" \
     --wait --wait-timeout 20m --json > "$base.json" 2> "$base.err"
   url=$(jq -r '.[0].result_url // empty' "$base.json")
@@ -144,7 +163,7 @@ gen_dive() { # name                       ($VOPTS is unquoted on purpose — wor
 }
 
 # Example: generate exactly one candidate, then stop.
-gen_dive farm r01
+gen_dive farm "$WORK/desktop-still-farm-r02.png" r01
 ```
 
 Approve/revise each dive until locked, then move to the next. Lock the complete approved
@@ -249,9 +268,10 @@ re-rolls (interiors trip the NSFW filter in portrait too); state the credit cost
 mobile-media interview.
 
 1. **Portrait start canvases.** Don't hand the video model a 3:2 still and hope: composite
-   each scene onto a 1080×1920 canvas in the page bg colour (island at ~94% width, visual
-   centre at ~45% height). The render then opens exactly on what the portrait poster shows.
-   For knocked-out stills, composite the RGBA over the bg colour first.
+   each approved scene onto a 1080×1920 canvas in the page bg colour (island at ~94% width,
+   visual centre at ~45% height). The render then opens exactly on what the portrait poster
+   shows. For knocked-out stills, composite the RGBA over the bg colour first. Present each
+   canvas for visual approval before it conditions a portrait video.
 2. **Dives/legs**: after desktop is fully locked, generate each portrait candidate
    individually and use the same thumbs-up/down gate. Use the same prompt templates with
    a portrait clause up front ("Vertical

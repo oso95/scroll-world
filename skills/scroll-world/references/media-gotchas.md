@@ -20,3 +20,7 @@
   live schema and explicitly disable it; the web experience strips/mutes audio anyway.
 - **Rejected clip appears in the build:** an encode glob selected every revision. Encode
   from the approval ledger's exact filenames only; keep rejected candidates for audit.
+- **Rejected still conditions a video or appears as a poster:** a generation glob selected
+  revisions instead of the approval ledger. Generate images one at a time, require explicit
+  approval, and build the contact sheet, video inputs, and poster derivatives only from exact
+  approved filenames.

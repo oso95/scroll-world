@@ -16,12 +16,12 @@ export function mountProjectWorld(containerId) {
   container.dataset.scrollWorldMounted = "true";
   const dispose = mountScrollWorld(container, {
     brand: { name: "{{BRAND_NAME}}", href: "/" },
-    cta: { label: "{{PRIMARY_CTA_LABEL}}", href: "/contact" },
+    cta: { label: "{{PRIMARY_CTA_LABEL}}", href: "{{PRIMARY_CTA_HREF}}" },
     hint: "Scroll to explore",
     nav: true,
     navLinks: [
-      // One real anchor per material service page.
-      { label: "{{SERVICE_1_LABEL}}", href: "/services/{{SERVICE_1_SLUG}}" }
+      // Existing route, approved external destination, or approved minimal placeholder.
+      { label: "{{NAV_1_LABEL}}", href: "{{NAV_1_HREF}}" }
     ],
     atmosphere: true,
     diveScroll: 1.4,
@@ -46,7 +46,7 @@ export function mountProjectWorld(containerId) {
         body: "{{SECTION_1_BODY}}",
         tags: ["{{SECTION_1_TAG}}"],
         cta: {
-          primary: { label: "{{SECTION_1_CTA}}", href: "/services/{{SERVICE_1_SLUG}}" }
+          primary: { label: "{{SECTION_1_CTA_LABEL}}", href: "{{SECTION_1_CTA_HREF}}" }
         }
       }
       // Add every approved scene. Finales commonly need focus: 0.85–0.95 after QA.

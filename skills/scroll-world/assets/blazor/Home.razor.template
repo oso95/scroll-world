@@ -28,14 +28,14 @@
         </picture>
     </div>
 
-    <section id="services"
+    <section id="homepage-story"
              class="sr-only"
              data-scroll-world-copy>
         <h1>{{HOME_H1}}</h1>
         <h2>{{SECTION_1_TITLE}}</h2>
         <p>{{SECTION_1_BODY}}</p>
-        <a href="/services/{{SERVICE_1_SLUG}}">{{SERVICE_1_LINK_TEXT}}</a>
-        <!-- Repeat real headings, summaries, and links for every scene/service. -->
-        <a href="/contact">{{PRIMARY_CTA_LABEL}}</a>
+        <a href="{{SECTION_1_CTA_HREF}}">{{SECTION_1_CTA_LABEL}}</a>
+        <!-- Repeat real headings/summaries for every scene. Add only approved valid links. -->
+        <a href="{{PRIMARY_CTA_HREF}}">{{PRIMARY_CTA_LABEL}}</a>
     </section>
 </main>
