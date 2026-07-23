@@ -1,118 +1,112 @@
 # scroll-world
 
-
 https://github.com/user-attachments/assets/b08e641e-985b-4bd4-83ff-6750272d0c37
 
+An agent skill for building a complete, production-minded **Blazor Web App** around an immersive scroll-scrubbed camera flight.
 
-An agent skill — for Claude Code, Codex, and any `SKILL.md`-compatible agent — that
-builds an immersive, **scroll-scrubbed "fly through the world" landing page** for any industry or brand — the kind where, as you scroll, a camera flies
-from *outside* each scene *into* its interior, then flows on to the next scene with **no
-cuts**. One continuous connected flight through a little generated world (think the Emons
-logistics site, applied to whatever you want).
+As a visitor scrolls, a pre-rendered camera moves through a connected generated world. The experience can use an isometric diorama, grounded architectural walkthrough, or another approved art direction. The skill handles the business/brand discovery, frame-locked Higgsfield media pipeline, responsive encoding, the proven scroll engine, full service/contact pages, SSR-first SEO/AEO, Blazor InteractiveAuto lifecycle, tests, and performance QA.
 
 ## Install
 
-### Claude Code — as a plugin (recommended)
+### Claude Code — plugin
 
-```
-/plugin marketplace add oso95/scroll-world
+```text
+/plugin marketplace add PinguApps/scroll-world
 /plugin install scroll-world@scroll-world
 ```
 
-Then just ask for a scroll-through world landing page, or invoke `/scroll-world`.
+Then invoke `/scroll-world`.
 
-### Codex & other agents — via the skills CLI
-
-Using [Vercel's skills CLI](https://github.com/vercel-labs/skills), which installs into
-Codex, Claude Code, Cursor, and 20+ other agents:
+### Codex and other agents — skills CLI
 
 ```bash
-npx skills add oso95/scroll-world            # pick your agent(s) when prompted
-npx skills add oso95/scroll-world -a codex   # or target Codex directly
+npx skills add PinguApps/scroll-world
+npx skills add PinguApps/scroll-world -a codex
 ```
 
-In Codex, invoke it with `$scroll-world` (or `/skills` to browse), or just ask for a
-scroll-through world landing page.
+In Codex, invoke `$scroll-world`.
 
-### Manually (drop-in skill)
-
-Copy the skill folder into your agent's skills directory:
+### Manual
 
 ```bash
-git clone https://github.com/oso95/scroll-world
-cp -R scroll-world/skills/scroll-world ~/.claude/skills/   # Claude Code
-cp -R scroll-world/skills/scroll-world ~/.codex/skills/    # Codex
+git clone https://github.com/PinguApps/scroll-world
+cp -R scroll-world/skills/scroll-world ~/.codex/skills/
 ```
+
+## Target
+
+The skill is intentionally Blazor-first. It expects a server-hosted Blazor Web App that can use InteractiveAuto. If the project does not yet have a WebAssembly client/Auto support, the agent explains the structural change and asks before converting it.
+
+It produces:
+
+- A cinematic scroll-scrubbed homepage.
+- Semantic SSR homepage content and responsive first-frame/LQIP delivery.
+- Full-information pages for each real service or offer.
+- A validated InteractiveAuto contact page (demo-only or connected, by explicit choice).
+- Canonical/social metadata, truthful JSON-LD, robots, sitemap, internal links, accessibility, and reduced-motion support.
+- A lifecycle-safe scroll engine limited to home; native scroll everywhere else.
+- A fresh homepage that does not start/download Blazor, while interactive pages use Auto and retain the runtime when navigating back home.
+- Behavioural regression tests plus browser, network, seam, and Lighthouse checks.
 
 ## Requirements
 
-- The [Higgsfield CLI](https://higgsfield.ai), authenticated (`higgsfield auth login`),
-  with credits.
-- `ffmpeg` / `ffprobe` for frame extraction and encoding.
-- Python 3 with Pillow (for the mobile portrait canvases; also the optional
-  transparent-scene knockout).
-- The [Codex CLI](https://github.com/openai/codex) (optional) — if present, the scene
-  stills can be generated through Codex's built-in `image_gen` (the same GPT Image
-  model), billed to a ChatGPT subscription instead of Higgsfield credits.
+- A Blazor Web App targeting a currently supported .NET version.
+- Authenticated [Higgsfield CLI](https://higgsfield.ai) with approved credits.
+- `ffmpeg` and `ffprobe`.
+- Python 3 + Pillow when background knockout or local LQIP tooling requires it.
+- Optional Codex image generation for stills.
 
-## What it does
+The skill audits these requirements but does not install tools, authenticate, switch workspaces, or spend credits without approval.
 
-It leans on [Higgsfield](https://higgsfield.ai) for the art: cohesive isometric diorama
-scenes (GPT Image 2 — via Higgsfield, or the Codex CLI on a ChatGPT subscription) and the
-camera flights themselves (Seedance or Kling image-to-video — only models that can
-frame-lock a seam), scrubbed
-by scroll position — the same technique behind Apple's scroll-through product pages. The
-camera genuinely moves; scroll only drives time. It's **framework-agnostic**: you get the
-Higgsfield pipeline, the prompt templates, and a portable vanilla-JS scrub engine that
-drops into plain HTML, Next.js, Vue, or a Python-served page — nothing assumes a stack.
+## Media choices
 
-When invoked, the skill:
+Every run explicitly chooses:
 
-1. **Interviews you** — the subject/industry + pitch, a brand kit (import from a URL, hand
-   it over, or have it proposed), art direction, the ordered scenes the camera visits,
-   whether you want the **mobile version** (a second chain rendered natively in 9:16
-   portrait — composed for phones, not a crop of the landscape film), and the **budget** —
-   render tiers and stills source shown with estimated credit costs, approved before
-   anything generates.
-2. **Generates the assets** — one still per scene, one "dive-in" camera
-   clip per scene, and the **connector** clips that join consecutive scenes, generated
-   from the actual rendered frames of their neighbours so every seam is frame-identical.
-   Mobile opt-in renders a parallel portrait chain the same way, frame-locked against its
-   own 9:16 renders.
-3. **Wires it up** — a config-driven scroll engine that plays the whole chain as one
-   flight, serving the portrait clips and posters automatically on phones.
+- Draft/previz (`seedance_2_0_mini`, 720p), Standard (`seedance_2_0`, 1080p), or Alternate (`kling3_0`, native 720p).
+- Desktop only or a separate native 9:16 mobile chain. Native mobile roughly doubles video generation; a crop is never silently labelled mobile-optimised.
+- Continuous forward architecture for grounded worlds or dive/connector architecture for miniature worlds.
+- Higgsfield or available Codex image generation for all stills in the chain.
 
-## What's in the skill
+The seam rule is strict: neighbouring clips share actual rendered boundary frames. Scroll scrubs the resulting video; it does not render 3D in the browser.
 
-```
+## Proven interaction defaults
+
+- No scroll snapping or forced section stops.
+- Accumulated wheel targets so fast wheel input always travels farther.
+- Frame-time-aware smooth response; native touch, keyboard, scrollbar, and middle-button autoscroll.
+- Copy changes quickly at exact section boundaries and stays fully settled within a section.
+- Tunable meaningful route-dot landing frames and 1.8-second cinematic navigation.
+- Demand-driven seeking, coalesced decoder work, nearby-only media, abort/revoke disposal, and no permanent animation loop.
+- Atomic scroll-to-top during enhanced navigation, without the outgoing page visibly racing upward.
+
+## Skill contents
+
+```text
 skills/scroll-world/
-├── SKILL.md                    the procedure + the seam rule + gotchas
+├── SKILL.md
+├── agents/openai.yaml
+├── assets/
+│   ├── blazor/
+│   │   ├── app-bootstrap.js
+│   │   ├── scroll-world-index.js.template
+│   │   ├── scroll-world.css.template
+│   │   ├── App.razor.integration.template
+│   │   ├── BlazorWarmup.razor
+│   │   ├── Contact.razor.template
+│   │   └── Home.razor.template
+│   └── tests/scroll-world-engine.test.mjs.template
 └── references/
-    ├── prompts.md              intake checklist + every Higgsfield prompt template
-    ├── pipeline.md             copy-paste batch scripts (generate → frames → connectors → encode)
-    ├── scrub-engine.js         portable, config-driven scrub engine (blob-seek, lazy load, seam crossfade)
-    ├── index-template.html     a minimal standalone page that mounts the engine
-    └── knockout.py             background knockout for floating scenes
+    ├── prompts.md
+    ├── pipeline.md
+    ├── scrub-engine.js
+    ├── blazor-integration.md
+    ├── site-foundation.md
+    ├── qa.md
+    ├── media-gotchas.md
+    └── knockout.py
 ```
 
-## Notes
-
-- Asset generation costs Higgsfield credits (~N image gens + ~2N-1 video gens for N
-  scenes; the mobile chain doubles the video gens) and takes a while — the skill runs
-  generations in the background and polls. Per-generation pricing isn't exposed by the
-  CLI, so the skill calibrates against your live balance and states the estimated total
-  before spending.
-- The generated `.mp4`/`.webp` assets are produced per project; they're not shipped here.
-
-## Star History
-
-<a href="https://www.star-history.com/?type=date&repos=oso95%2Fscroll-world">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=oso95/scroll-world&type=date&theme=dark&legend=top-left&sealed_token=rsHNX9eWfbhlu820oC1dzsc66Y8UZI4dawuHvAUlbn36F0gwOWXRDi-Qq4QFopkoEJE7bzgXPUkAmSnmMcglxAo_rM7TvGDKFehk5MzprmeT2euDRbHnTQZIxEWwjjpGQ3nodpdblW6WjTssURtDxXO2MCVL_WgJ_WnCIoVbV8qhsB_Z-Eeo8KCyVerC" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=oso95/scroll-world&type=date&legend=top-left&sealed_token=rsHNX9eWfbhlu820oC1dzsc66Y8UZI4dawuHvAUlbn36F0gwOWXRDi-Qq4QFopkoEJE7bzgXPUkAmSnmMcglxAo_rM7TvGDKFehk5MzprmeT2euDRbHnTQZIxEWwjjpGQ3nodpdblW6WjTssURtDxXO2MCVL_WgJ_WnCIoVbV8qhsB_Z-Eeo8KCyVerC" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=oso95/scroll-world&type=date&legend=top-left&sealed_token=rsHNX9eWfbhlu820oC1dzsc66Y8UZI4dawuHvAUlbn36F0gwOWXRDi-Qq4QFopkoEJE7bzgXPUkAmSnmMcglxAo_rM7TvGDKFehk5MzprmeT2euDRbHnTQZIxEWwjjpGQ3nodpdblW6WjTssURtDxXO2MCVL_WgJ_WnCIoVbV8qhsB_Z-Eeo8KCyVerC" />
- </picture>
-</a>
+Generated media is project-specific and is not stored in this repository.
 
 ## License
 

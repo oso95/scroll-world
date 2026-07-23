@@ -1,0 +1,8 @@
+interface:
+  display_name: "Scroll World for Blazor"
+  short_description: "Build cinematic, SEO-ready Blazor sites"
+  brand_color: "#2563EB"
+  default_prompt: "Use $scroll-world to build a complete Blazor site around a cinematic scroll-scrubbed homepage."
+
+policy:
+  allow_implicit_invocation: true

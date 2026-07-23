@@ -1,0 +1,65 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const engineUrl = new URL("{{ENGINE_RELATIVE_URL}}", import.meta.url);
+const engineSource = await readFile(engineUrl, "utf8");
+const engineModule = await import(`data:text/javascript;base64,${Buffer.from(engineSource).toString("base64")}`);
+const {
+  accumulatedWheelTarget,
+  mediaTimeForTarget,
+  navigationScrollPosition,
+  scaledWheelDelta,
+  sectionIndexForPosition,
+  sectionNavigationTarget,
+  smoothWheelPosition
+} = engineModule;
+
+test("scrubbing seeks directly to the newest meaningful target", () => {
+  assert.equal(mediaTimeForTarget(0, 8, 0.75, 0.025), 6);
+  assert.equal(mediaTimeForTarget(1, 8, 0.127, 0.025), null);
+});
+
+test("wheel units scale and rapid input accumulates", () => {
+  assert.equal(scaledWheelDelta(100, 0, 720, 1), 100);
+  assert.equal(scaledWheelDelta(1, 1, 720, 5), 80);
+  assert.equal(scaledWheelDelta(1, 2, 720, 5), 3600);
+
+  let target = null;
+  for (let event = 0; event < 8; event++) {
+    target = accumulatedWheelTarget(target, 0, 100, 5000);
+  }
+  assert.equal(target, 800);
+});
+
+test("smooth wheel response accelerates with distance and finishes", () => {
+  const one = smoothWheelPosition(0, 100, 16, 18);
+  const eight = smoothWheelPosition(0, 800, 16, 18);
+  assert.ok(eight > one * 7.9);
+
+  let position = 0;
+  for (let frame = 0; frame < 120 && position !== 600; frame++) {
+    position = Math.round(smoothWheelPosition(position, 600, 16, 35));
+  }
+  assert.equal(position, 600);
+});
+
+test("section navigation duration, focus and boundaries are deterministic", () => {
+  assert.equal(navigationScrollPosition(0, 1000, 900, 1800), 500);
+  assert.equal(sectionNavigationTarget(100, 500, 0.88), 452);
+  assert.equal(sectionIndexForPosition([0, 1742, 3413], 1741), 0);
+  assert.equal(sectionIndexForPosition([0, 1742, 3413], 1742), 1);
+});
+
+test("engine retains lifecycle and resource-release contracts", () => {
+  assert.match(engineSource, /event\.button !== 1/);
+  assert.match(engineSource, /cancelNavigation\(\)[\s\S]*?cancelWheelScroll\(\)/);
+  assert.match(engineSource, /new AbortController\(\)/);
+  assert.match(engineSource, /revokeObjectURL/);
+  assert.match(engineSource, /removeEventListener\('wheel', onWheel\)/);
+  assert.match(engineSource, /data-scroll-world-first-picture/);
+  assert.match(engineSource, /function scheduleScrub\(\)/);
+});
+
+// Add source-contract tests for the project bootstrap, App.razor, SSR routes,
+// robots, sitemap, and generated config as listed in references/qa.md.

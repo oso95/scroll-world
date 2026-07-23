@@ -1,0 +1,36 @@
+.{{WORLD_CSS_CLASS}} {
+  --sw-bg: {{BACKGROUND_HEX}};
+  --sw-ink: {{INK_HEX}};
+  --sw-ink-soft: {{SOFT_INK_HEX}};
+  --sw-accent: {{ACCENT_HEX}};
+  --sw-font-display: {{DISPLAY_FONT_STACK}};
+  --sw-font-body: {{BODY_FONT_STACK}};
+  min-height: 100vh;
+}
+
+.{{WORLD_CSS_CLASS}}__first-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: {{BACKGROUND_HEX}} url("/assets/scroll-world/stills/{{FIRST_STILL}}-lqip.webp") center / cover no-repeat;
+  pointer-events: none;
+}
+
+.{{WORLD_CSS_CLASS}}__first-frame picture,
+.{{WORLD_CSS_CLASS}}__first-frame img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.{{WORLD_CSS_CLASS}}__first-frame img {
+  object-fit: cover;
+  object-position: center 42%;
+  transform: translateX(2vw) scale(1.03);
+}
+
+/* Add approved brand-specific chrome overrides below. Keep the engine's layout,
+   scroll ownership, reduced-motion, and mobile rules in its injected layer. */

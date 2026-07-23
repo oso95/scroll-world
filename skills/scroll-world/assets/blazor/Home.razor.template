@@ -1,0 +1,41 @@
+@page "/"
+@layout {{SCROLL_WORLD_LAYOUT}}
+
+<{{SEO_COMPONENT}} Title="{{HOME_TITLE}}"
+                   Description="{{HOME_DESCRIPTION}}"
+                   CanonicalUrl="{{CANONICAL_ORIGIN}}/"
+                   SchemaJson="@{{SCHEMA_PROVIDER}}.ForHome()" />
+
+<main id="{{WORLD_CONTAINER_ID}}"
+      class="min-h-screen {{WORLD_CSS_CLASS}}"
+      aria-label="{{WORLD_ARIA_LABEL}}"
+      data-scroll-world="{{WORLD_KEY}}">
+    <div class="{{WORLD_CSS_CLASS}}__first-frame"
+         data-scroll-world-first-frame
+         aria-hidden="true">
+        <picture data-scroll-world-first-picture>
+            <source type="image/webp"
+                    srcset="/assets/scroll-world/stills/{{FIRST_STILL}}-640.webp 640w, /assets/scroll-world/stills/{{FIRST_STILL}}-960.webp 960w, /assets/scroll-world/stills/{{FIRST_STILL}}.webp 1280w"
+                    sizes="100vw" />
+            <img src="/assets/scroll-world/stills/{{FIRST_STILL}}.webp"
+                 width="1280"
+                 height="720"
+                 alt=""
+                 loading="eager"
+                 decoding="async"
+                 fetchpriority="high"
+                 data-scroll-world-first-still />
+        </picture>
+    </div>
+
+    <section id="services"
+             class="sr-only"
+             data-scroll-world-copy>
+        <h1>{{HOME_H1}}</h1>
+        <h2>{{SECTION_1_TITLE}}</h2>
+        <p>{{SECTION_1_BODY}}</p>
+        <a href="/services/{{SERVICE_1_SLUG}}">{{SERVICE_1_LINK_TEXT}}</a>
+        <!-- Repeat real headings, summaries, and links for every scene/service. -->
+        <a href="/contact">{{PRIMARY_CTA_LABEL}}</a>
+    </section>
+</main>

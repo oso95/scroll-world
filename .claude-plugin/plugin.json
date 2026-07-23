@@ -1,12 +1,11 @@
 {
   "name": "scroll-world",
-  "description": "Build an immersive scroll-scrubbed 'fly through the world' landing page for any industry or brand using Higgsfield. As the visitor scrolls, a pre-rendered camera flies from outside each scene into its interior, then flows on to the next scene with no cuts — one continuous connected flight. Interviews the user for the topic, story beats, and brand kit, then generates cohesive scenes + seamless camera clips and wires a portable, framework-agnostic scroll-scrub engine. Use for a '3D world' / 'browse-through-the-industry' hero, a scroll cinematic, or a diorama landing.",
-  "version": "0.3.0",
+  "description": "Build a complete Blazor Web App around an immersive Higgsfield-generated scroll-scrubbed camera flight, including full service/contact pages, SSR-first SEO/AEO, InteractiveAuto lifecycle, performance hardening, and regression QA.",
+  "version": "1.0.0",
   "author": {
-    "name": "cyw",
-    "email": "cyw@cywang.me"
+    "name": "PinguApps"
   },
-  "homepage": "https://github.com/oso95/scroll-world",
+  "homepage": "https://github.com/PinguApps/scroll-world",
   "license": "MIT",
   "keywords": [
     "higgsfield",
@@ -16,6 +15,10 @@
     "seedance",
     "diorama",
     "webgl-alternative",
-    "cinematic"
+    "cinematic",
+    "blazor",
+    "dotnet",
+    "seo",
+    "aeo"
   ]
 }

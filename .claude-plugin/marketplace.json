@@ -1,17 +1,16 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "scroll-world",
-  "description": "Immersive scroll-scrubbed 'fly through the world' landing pages, generated with Higgsfield.",
+  "description": "Complete Blazor sites with immersive Higgsfield scroll cinematics.",
   "owner": {
-    "name": "cyw",
-    "email": "cyw@cywang.me"
+    "name": "PinguApps"
   },
   "plugins": [
     {
       "name": "scroll-world",
       "source": "./",
       "skills": ["./skills/scroll-world"],
-      "description": "Build an immersive scroll-scrubbed landing page where a pre-rendered camera flies from outside each scene into its interior, then flows on to the next with no cuts. Interviews the user for topic, story beats, and brand kit; generates cohesive scenes + seamless camera clips with Higgsfield; wires a portable, framework-agnostic scrub engine.",
+      "description": "Build a complete Blazor Web App with a seamless generated camera-flight homepage, full service/contact pages, SSR-first SEO/AEO, InteractiveAuto lifecycle, performance hardening, and regression QA.",
       "category": "design"
     }
   ]

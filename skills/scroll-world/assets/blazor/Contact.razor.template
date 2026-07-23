@@ -1,0 +1,124 @@
+@page "/contact"
+@rendermode InteractiveAuto
+@using System.ComponentModel.DataAnnotations
+
+<{{SEO_COMPONENT}} Title="{{CONTACT_TITLE}}"
+                   Description="{{CONTACT_DESCRIPTION}}"
+                   CanonicalUrl="{{CANONICAL_ORIGIN}}/contact"
+                   SchemaJson="@{{SCHEMA_PROVIDER}}.ForContact()" />
+
+<article>
+    <header>
+        <nav aria-label="Breadcrumb">
+            <a href="/">Home</a> / <span aria-current="page">Contact</span>
+        </nav>
+        <p>{{CONTACT_EYEBROW}}</p>
+        <h1>{{CONTACT_H1}}</h1>
+        <p>{{CONTACT_INTRO}}</p>
+    </header>
+
+    <section aria-labelledby="contact-form-title">
+        <h2 id="contact-form-title">{{CONTACT_FORM_HEADING}}</h2>
+        @if ({{DEMO_MODE}})
+        {
+            <p>This is a demo form. <strong>Nothing is sent or stored.</strong></p>
+        }
+
+        <EditForm Model="Model" OnValidSubmit="HandleValidSubmit" data-contact-form>
+            <DataAnnotationsValidator />
+
+            <label for="contact-name">Your name</label>
+            <InputText id="contact-name"
+                       @bind-Value="Model.Name"
+                       @oninput="eventArgs => Model.Name = eventArgs.Value?.ToString() ?? string.Empty"
+                       autocomplete="name" />
+            <ValidationMessage For="@(() => Model.Name)" data-validation-message />
+
+            <label for="contact-email">Email address</label>
+            <InputText id="contact-email"
+                       @bind-Value="Model.Email"
+                       @oninput="eventArgs => Model.Email = eventArgs.Value?.ToString() ?? string.Empty"
+                       type="email"
+                       autocomplete="email" />
+            <ValidationMessage For="@(() => Model.Email)" data-validation-message />
+
+            <label for="contact-company">Business (optional)</label>
+            <InputText id="contact-company"
+                       @bind-Value="Model.Company"
+                       @oninput="eventArgs => Model.Company = eventArgs.Value?.ToString() ?? string.Empty"
+                       autocomplete="organization" />
+
+            <label for="contact-service">What might help?</label>
+            <InputSelect id="contact-service" @bind-Value="Model.Service">
+                <option value="">Not sure yet</option>
+                <!-- Add one option per approved service. -->
+                <option>{{SERVICE_1_LABEL}}</option>
+            </InputSelect>
+
+            <label for="contact-message">Tell me about the problem or idea</label>
+            <InputTextArea id="contact-message"
+                           @bind-Value="Model.Message"
+                           @oninput="eventArgs => Model.Message = eventArgs.Value?.ToString() ?? string.Empty" />
+            <ValidationMessage For="@(() => Model.Message)" data-validation-message />
+
+            <button type="submit" disabled="@(!IsInteractive)">
+                @(IsInteractive ? "{{CONTACT_SUBMIT_LABEL}}" : "Preparing form…")
+            </button>
+        </EditForm>
+    </section>
+</article>
+
+@if (ShowToast)
+{
+    <div role="status" aria-live="polite" data-contact-toast>
+        <p>{{CONTACT_SUCCESS_TITLE}}</p>
+        <p>{{CONTACT_SUCCESS_BODY}}</p>
+        <button type="button" @onclick="DismissToast" aria-label="Dismiss confirmation">×</button>
+    </div>
+}
+
+@code {
+    private ContactFormModel Model { get; } = new();
+    private bool IsInteractive { get; set; }
+    private bool ShowToast { get; set; }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        IsInteractive = true;
+        StateHasChanged();
+    }
+
+    private void HandleValidSubmit()
+    {
+        // Demo mode: intentionally sends and stores nothing.
+        // Production mode: replace only after delivery/security requirements are approved.
+        ShowToast = true;
+    }
+
+    private void DismissToast() => ShowToast = false;
+
+    private sealed class ContactFormModel
+    {
+        [Required(ErrorMessage = "Please enter your name.")]
+        [StringLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please enter your email address.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+        public string Email { get; set; } = string.Empty;
+
+        [StringLength(150)]
+        public string Company { get; set; } = string.Empty;
+
+        public string Service { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please tell me a little about the project.")]
+        [StringLength(2_000, MinimumLength = 20, ErrorMessage = "Please add at least 20 characters so there is enough context.")]
+        public string Message { get; set; } = string.Empty;
+    }
+}

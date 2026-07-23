@@ -1,0 +1,92 @@
+import { mountScrollWorld } from "./engine.js";
+
+const WORLD_KEY = "{{WORLD_KEY}}";
+const mountedWorlds = new Map();
+
+export function mountProjectWorld(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || container.dataset.scrollWorldMounted === "true") return;
+
+  const existing = mountedWorlds.get(containerId);
+  if (existing) {
+    existing.dispose();
+    mountedWorlds.delete(containerId);
+  }
+
+  container.dataset.scrollWorldMounted = "true";
+  const dispose = mountScrollWorld(container, {
+    brand: { name: "{{BRAND_NAME}}", href: "/" },
+    cta: { label: "{{PRIMARY_CTA_LABEL}}", href: "/contact" },
+    hint: "Scroll to explore",
+    nav: true,
+    navLinks: [
+      // One real anchor per material service page.
+      { label: "{{SERVICE_1_LABEL}}", href: "/services/{{SERVICE_1_SLUG}}" }
+    ],
+    atmosphere: true,
+    diveScroll: 1.4,
+    connScroll: 0.82,
+    crossfade: 0.1,
+    wheelMultiplier: 1,
+    wheelResponse: 18,
+    navigationDuration: 1800,
+    sections: [
+      {
+        id: "{{SECTION_1_ID}}",
+        label: "{{SECTION_1_LABEL}}",
+        still: "/assets/scroll-world/stills/{{SECTION_1_STILL}}.webp",
+        clip: "/assets/scroll-world/video/{{SECTION_1_CLIP}}.mp4",
+        // Add stillMobile/clipMobile only when a native 9:16 chain was approved.
+        scroll: 1.6,
+        linger: 0.28,
+        // focus: 0.5, // Tune to the most meaningful rendered frame.
+        accent: "{{SECTION_1_ACCENT}}",
+        eyebrow: "{{SECTION_1_EYEBROW}}",
+        title: "{{SECTION_1_TITLE}}",
+        body: "{{SECTION_1_BODY}}",
+        tags: ["{{SECTION_1_TAG}}"],
+        cta: {
+          primary: { label: "{{SECTION_1_CTA}}", href: "/services/{{SERVICE_1_SLUG}}" }
+        }
+      }
+      // Add every approved scene. Finales commonly need focus: 0.85–0.95 after QA.
+    ],
+    connectors: [
+      // Architecture B only: one URL or null per gap. Architecture A uses [].
+    ]
+    // connectorsMobile: [] // Add only for an approved native 9:16 chain.
+  });
+
+  mountedWorlds.set(containerId, { container, dispose });
+}
+
+export function unmountProjectWorld(containerId) {
+  const mountedWorld = mountedWorlds.get(containerId);
+  if (!mountedWorld) return;
+  mountedWorld.dispose();
+  mountedWorlds.delete(containerId);
+}
+
+export function unmountScrollWorlds() {
+  mountedWorlds.forEach(mountedWorld => mountedWorld.dispose());
+  mountedWorlds.clear();
+}
+
+export function syncScrollWorlds() {
+  mountedWorlds.forEach((mountedWorld, containerId) => {
+    if (!mountedWorld.container.isConnected) {
+      mountedWorld.dispose();
+      mountedWorlds.delete(containerId);
+    }
+  });
+
+  document.querySelectorAll(`[data-scroll-world="${WORLD_KEY}"]`).forEach(container => {
+    mountProjectWorld(container.id);
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", syncScrollWorlds, { once: true });
+} else {
+  syncScrollWorlds();
+}

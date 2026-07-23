@@ -15,7 +15,7 @@ Usage:
 Then encode to webp with alpha, e.g.:
     cwebp -q 84 -alpha_q 95 -resize 1800 0 scene1.rgba.png -o scene1.webp
 
-No numpy/ImageMagick needed — pure PIL. Pairs with SKILL.md Step 3.
+No numpy/ImageMagick needed — pure PIL. Pairs with SKILL.md Phase 4.
 """
 import os
 import sys

@@ -1,0 +1,10 @@
+@* Merge these elements into the existing root App.razor. Keep its real head,
+   styles, ImportMap, diagnostics, and project-specific components. *@
+
+@* REMOVE: <ResourcePreloader /> — it defeats the zero-framework homepage. *@
+@* REMOVE: any normal <script src="..._framework/blazor.web.js"></script>. *@
+
+<Routes />
+<BlazorWarmup @rendermode="InteractiveAuto" />
+<script type="module"
+        src="@Assets["js/app-bootstrap.js"]"></script>
