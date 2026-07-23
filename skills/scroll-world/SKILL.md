@@ -66,19 +66,30 @@ Ask only decisions that change the result. Group questions into short rounds.
    - A: continuous forward chain for grounded walkthroughs. Recommended unless the world is intentionally miniature/map-like.
    - B: dives plus aerial connectors for diorama worlds.
 5. Mobile media, always ask: desktop only or a second native 9:16 chain. Explain that native portrait approximately doubles video spend. Never silently call a centre crop “mobile-optimised.”
-6. Quality, always ask:
+6. Quality, always inspect the live model schemas and ask:
 
-   | Tier | Video model | Purpose |
+   | Tier | Video route | Purpose |
    |---|---|---|
-   | Draft/previz | `seedance_2_0_mini`, 720p | Cheap validation pass |
-   | Standard | `seedance_2_0`, 1080p | Default production route |
-   | Alternate | `kling3_0`, native 720p | Different look/filter |
+   | Draft/previz | `seedance_2_0_mini`, 480p or 720p | Lowest-cost motion/composition validation |
+   | Efficient | `seedance_2_0`, Fast, 480p or 720p | Faster/lower-cost final delivery when HD is sufficient |
+   | Production | `seedance_2_0`, Standard, 1080p | Default web-production master |
+   | Premium master | `seedance_2_0`, Standard, 4K | Archive/crop headroom; expensive and rarely worth serving directly |
+   | Alternate | `kling3_0`, Standard/Pro/4K mode | Different motion/look or filter fallback; verify native output with `ffprobe` |
 
-   Also choose one still source for the whole chain: Higgsfield or Codex image generation when available.
+   Also choose one still source for the whole chain:
+   - Higgsfield `gpt_image_2`: 1K/2K/4K and low/medium/high; default 2K high.
+   - Higgsfield `nano_banana_2`/Nano Banana Pro: 1K/2K/4K alternative when its
+     composition style better suits the brief.
+   - Codex image generation when available: no Higgsfield credits, but subject to Codex
+     usage and its available output sizes.
+
+   Never mix still models/sources within one chain.
+   Ask whether to use standard or high source bitrate where the model exposes it. Disable
+   generated audio: the homepage is muted and audio can materially increase credit cost.
 7. Contact handling, always ask: demo-only (validation + toast; nothing sent/stored) or connect to the project’s approved backend. Default to demo-only until delivery/security requirements are explicit.
 8. Deployment/media origin: local assets for development or a CDN. Capture the canonical production origin for metadata, robots, sitemap, and JSON-LD.
 
-Calculate `N stills + (2N−1) videos` for architecture B, or `N stills + N sequential legs` for A; double video work for native mobile and include about 15% reroll headroom. Calibrate with one approved still and one approved video because live prices vary. Stop for approval before the paid batch.
+Calculate `N stills + (2N−1) accepted videos` for architecture B, or `N stills + N accepted sequential legs` for A; double accepted video work for native mobile. Show base cost separately from a realistic revision allowance (normally 25–50% for production review; more for ambitious motion). Calibrate with one approved still and one approved video because live prices vary. Stop for approval before paid generation.
 
 Write down the approved choices and success criteria before generating.
 
@@ -96,12 +107,26 @@ Read `references/prompts.md`, `references/pipeline.md`, and `references/media-go
 
 Use one byte-identical style preamble, palette, lens/lighting language, and still source throughout. Review all stills as a contact sheet before video.
 
+Generate videos through the approval gate in `references/review-workflow.md`. Never batch,
+parallelize, queue, or automatically continue through paid video generations:
+
+1. Generate exactly one candidate.
+2. Download it, create review frames/proxy, and present the video with its prompt, model,
+   resolution, duration, revision number, and measured credit deduction.
+3. Wait for an explicit thumbs-up/approval or thumbs-down with feedback.
+4. On rejection, preserve the old candidate, record the fault, revise only what the
+   feedback warrants, and generate one replacement within the approved revision budget.
+5. Only an approved candidate may provide a boundary frame or allow the next video to begin.
+
+Draft approval does not approve the production render: every re-rendered 1080p/4K candidate
+must be reviewed again. Desktop approval does not approve the native portrait version.
+
 The seam rule is absolute:
 
 - Architecture A: each next leg starts from the previous leg’s actual final rendered frame. End and begin with the same gentle forward drift. No connectors.
 - Architecture B: connector start = previous dive’s actual final frame; connector end = next dive’s actual first frame. Never use the original concept still as a connector endpoint.
 
-Use one frame-locking video model across the chain. Supported roster: `seedance_2_0`, `seedance_2_0_mini`, `kling3_0`. Verify the current model schema before batching. A requested alternative is valid only if its start/end conditioning satisfies the chosen architecture.
+Use one frame-locking video model across the chain. Supported roster: `seedance_2_0`, `seedance_2_0_mini`, `kling3_0`. Verify the current model schema before the first candidate. A requested alternative is valid only if its start/end conditioning satisfies the chosen architecture.
 
 Keep raw outputs. Encode desktop H.264 at native resolution, CRF about 20, GOP 8, fixed keyframe interval, yuv420p, no audio, faststart, with restrained sharpening. Native mobile is portrait, typically 720 px wide, CRF about 23, GOP 4. Do not use all-intra or upscale native 720p output. The engine fetches clips to Blob URLs so seekability does not depend on host byte-range support.
 
@@ -164,6 +189,7 @@ Do not claim completion until the solution builds, relevant automated tests pass
 - `references/site-foundation.md` — full pages, SEO/AEO, schema, accessibility, LQIP, CDN.
 - `references/qa.md` — regression and browser/performance matrix.
 - `references/media-gotchas.md` — generation, seam, encoder, and device failure guide.
+- `references/review-workflow.md` — mandatory one-candidate-at-a-time approval ledger.
 - `references/knockout.py` — optional border-connected background knockout.
 - `assets/blazor/*` — integration and critical-CSS templates.
 - `assets/tests/*` — portable Node regression-test template.

@@ -7,22 +7,45 @@ WORK=/tmp/scroll-world           # scratch dir for prompts, sources, frames
 ASSETS=./wwwroot/assets/scroll-world # adapt to the Blazor static-web-assets project
 mkdir -p "$WORK" "$ASSETS/stills" "$ASSETS/video"
 NAMES="farm kitchen shop delivery plaza finale"   # <-- your section ids, in order
+STILL_MODEL=gpt_image_2          # or nano_banana_2; use one model for the whole chain
+STILL_RESOLUTION=2k              # 1k | 2k | 4k
+STILL_QUALITY=high               # GPT Image only: low | medium | high
 
 # Chain video model — ONE for every chained clip (SKILL Phase 4 roster).
 # Must accept --start-image AND --end-image (verify: higgsfield model get <model>):
-# seedance_2_0 | kling3_0 | seedance_2_0_mini (draft tier). Reference-only models can't
-# hold a seam; models without --mode (e.g. kling3_0_turbo) need their own flag branch below.
+# seedance_2_0 | kling3_0 | seedance_2_0_mini (draft tier). Always inspect the live
+# schema first. Reference-only models cannot hold a seam.
 VMODEL=seedance_2_0
-case "$VMODEL" in                                  # per-model flags + durations (bash 3.2 safe)
-  kling3_0)          VOPTS="--mode std --sound off";          DIVE_DUR=10; CONN_DUR=5 ;;  # no --resolution param on Kling
-  seedance_2_0_mini) VOPTS="--mode std --resolution 720p";    DIVE_DUR=8;  CONN_DUR=5 ;;  # cheap frame-locked previz
-  *)                 VOPTS="--mode std --resolution 1080p";   DIVE_DUR=8;  CONN_DUR=5 ;;  # seedance_2_0 default
+# Approved quality settings. Examples:
+#   Seedance production: std + 1080p (default)
+#   Seedance premium master: std + 4k
+#   Seedance efficient: fast + 720p
+#   Mini draft: 720p (no mode parameter)
+#   Kling: std/pro/4k mode; ffprobe the actual output and never assume/upscale it.
+SEEDANCE_MODE=std
+SEEDANCE_RESOLUTION=1080p
+SOURCE_BITRATE=standard
+KLING_MODE=std
+
+case "$VMODEL" in
+  kling3_0)
+    VOPTS="--mode $KLING_MODE --sound off"
+    DIVE_DUR=10; CONN_DUR=5
+    ;;
+  seedance_2_0_mini)
+    VOPTS="--resolution 720p --bitrate_mode $SOURCE_BITRATE --generate_audio false"
+    DIVE_DUR=8; CONN_DUR=5
+    ;;
+  *)
+    VOPTS="--mode $SEEDANCE_MODE --resolution $SEEDANCE_RESOLUTION --bitrate_mode $SOURCE_BITRATE --generate_audio false"
+    DIVE_DUR=8; CONN_DUR=5
+    ;;
 esac
 ```
 
-Higgsfield generations take minutes — every `higgsfield ... --wait` call below is meant
-to run inside a **backgrounded** script. Launch the whole script with your tool's
-background/detached mode and poll the progress log; never block the foreground.
+Higgsfield generations take minutes. Run only the **single currently approved candidate**
+in a background/detached process and poll it. Never launch a whole video loop. Read
+`review-workflow.md`: after each candidate finishes, show it and stop for feedback.
 
 ## 1. Scene stills
 
@@ -30,8 +53,13 @@ Write one prompt file per section to `$WORK/still_<name>.txt` (see prompts.md), 
 
 ```bash
 gen_still() { # name
-  higgsfield generate create gpt_image_2 --prompt "$(cat "$WORK/still_$1.txt")" \
-    --aspect_ratio 3:2 --resolution 2k --quality high --wait --wait-timeout 15m --json \
+  if [ "$STILL_MODEL" = "gpt_image_2" ]; then
+    image_opts="--resolution $STILL_RESOLUTION --quality $STILL_QUALITY"
+  else
+    image_opts="--resolution $STILL_RESOLUTION"
+  fi
+  higgsfield generate create "$STILL_MODEL" --prompt "$(cat "$WORK/still_$1.txt")" \
+    --aspect_ratio 3:2 $image_opts --wait --wait-timeout 15m --json \
     > "$WORK/still_$1.json" 2> "$WORK/still_$1.err"
   url=$(jq -r '.[0].result_url // empty' "$WORK/still_$1.json")
   [ -n "$url" ] && curl -fsSL "$url" -o "$WORK/still_$1.png" && echo "still $1 ok" || echo "still $1 FAIL"
@@ -71,27 +99,33 @@ add `--image "$WORK/still_<good>.png"` to lock style).
 
 ## 2A. Continuous forward legs — architecture A
 
-Generate sequentially. Each next leg starts from the previous leg's **actual final rendered frame**. Inspect that frame before paying for the next leg; it must end in the agreed gentle forward drift.
+Each next leg starts from the previous leg's **approved actual final rendered frame**.
+Generate one revision only, present it, and wait for explicit approval.
 
 Prompt files live at `$WORK/leg_<name>.txt`.
 
 ```bash
-prev=""
-for n in $NAMES; do
-  if [ -z "$prev" ]; then start="$WORK/still_$n.png"; else start="$WORK/last_$prev.png"; fi
-  higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/leg_$n.txt")" \
+gen_leg_candidate() { # name start-image revision
+  name="$1"; start="$2"; rev="$3"
+  base="$WORK/desktop-leg-$name-$rev"
+  higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/leg_$name.txt")" \
     --start-image "$start" $VOPTS --aspect_ratio 16:9 --duration "$DIVE_DUR" \
-    --wait --wait-timeout 20m --json > "$WORK/leg_$n.json" 2> "$WORK/leg_$n.err"
-  url=$(jq -r '.[0].result_url // empty' "$WORK/leg_$n.json")
-  [ -n "$url" ] || { echo "leg $n FAIL"; exit 1; }
-  curl -fsSL "$url" -o "$WORK/leg_$n.mp4" || exit 1
-  ffmpeg -v error -y -sseof -0.15 -i "$WORK/leg_$n.mp4" -frames:v 1 -q:v 2 "$WORK/last_$n.png"
-  # Pause/review here. Re-roll this leg if the final-second motion contract is wrong.
-  prev="$n"
-done
+    --wait --wait-timeout 20m --json > "$base.json" 2> "$base.err"
+  url=$(jq -r '.[0].result_url // empty' "$base.json")
+  [ -n "$url" ] || { echo "leg $name $rev FAIL"; return 1; }
+  curl -fsSL "$url" -o "$base.mp4" || return 1
+  ffmpeg -v error -y -sseof -0.15 -i "$base.mp4" -frames:v 1 -q:v 2 "$base-last.png"
+  echo "STOP: present $base.mp4 and review frames; do not generate another video."
+}
+
+# Example: generate exactly one candidate, then stop.
+gen_leg_candidate farm "$WORK/still_farm.png" r01
 ```
 
-Architecture A uses the encoded legs as section clips and `connectors: []`. Skip §§2B–4.
+After 👍 approval, record the exact candidate in the ledger. Its `*-last.png` may then
+become the next candidate's start image. After 👎 feedback, preserve it and render only
+one incremented revision. Architecture A uses approved legs as section clips and
+`connectors: []`. Skip §§2B–4.
 
 ## 2B. Dive-in clips — architecture B
 
@@ -99,18 +133,22 @@ Prompt files at `$WORK/dive_<name>.txt`. Start image = the solid-bg still PNG.
 
 ```bash
 gen_dive() { # name                       ($VOPTS is unquoted on purpose — word-split flags)
-  higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/dive_$1.txt")" \
-    --start-image "$WORK/still_$1.png" \
+  name="$1"; rev="$2"; base="$WORK/desktop-dive-$name-$rev"
+  higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/dive_$name.txt")" \
+    --start-image "$WORK/still_$name.png" \
     $VOPTS --aspect_ratio 16:9 --duration "$DIVE_DUR" \
-    --wait --wait-timeout 20m --json > "$WORK/dive_$1.json" 2> "$WORK/dive_$1.err"
-  url=$(jq -r '.[0].result_url // empty' "$WORK/dive_$1.json")
-  [ -n "$url" ] && curl -fsSL "$url" -o "$WORK/dive_$1.mp4" && echo "dive $1 ok" || echo "dive $1 FAIL"
+    --wait --wait-timeout 20m --json > "$base.json" 2> "$base.err"
+  url=$(jq -r '.[0].result_url // empty' "$base.json")
+  [ -n "$url" ] && curl -fsSL "$url" -o "$base.mp4" || return 1
+  echo "STOP: present $base.mp4; wait for thumbs-up/down before any next video."
 }
-for n in $NAMES; do gen_dive "$n" & done ; wait
+
+# Example: generate exactly one candidate, then stop.
+gen_dive farm r01
 ```
 
-Re-roll individual failures (503 / credit race are transient):
-`gen_dive shop`  (just that one).
+Approve/revise each dive until locked, then move to the next. Lock the complete approved
+dive set before extracting connector frames.
 
 ## 3. Extract boundary frames — architecture B seam handoff
 
@@ -118,12 +156,10 @@ For each adjacent pair, the connector's start = dive_i's LAST frame, end = dive_
 FIRST frame — extracted from the **rendered videos**, never the stills.
 
 ```bash
-set -- $NAMES
-prev=""
-for n in "$@"; do
-  ffmpeg -v error -ss 0 -i "$WORK/dive_$n.mp4" -frames:v 1 -q:v 2 "$WORK/first_$n.png"      # establishing
-  ffmpeg -v error -sseof -0.15 -i "$WORK/dive_$n.mp4" -frames:v 1 -q:v 2 "$WORK/last_$n.png" # interior
-done
+# Use the exact approved path from the ledger, never a wildcard/rejected revision.
+approved="$WORK/desktop-dive-farm-r02.mp4"
+ffmpeg -v error -y -ss 0 -i "$approved" -frames:v 1 -q:v 2 "$WORK/approved-first-farm.png"
+ffmpeg -v error -y -sseof -0.15 -i "$approved" -frames:v 1 -q:v 2 "$WORK/approved-last-farm.png"
 ```
 
 ## 4. Connector clips — architecture B
@@ -131,19 +167,19 @@ done
 Prompt files at `$WORK/conn_<i>.txt` (i = 1..N-1). Iterate adjacent pairs:
 
 ```bash
-gen_conn() { # i startPng endPng          (end-image required → seedance/kling3_0 only)
-  higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/conn_$1.txt")" \
+gen_conn() { # i startPng endPng revision
+  i="$1"; start="$2"; end="$3"; rev="$4"; base="$WORK/desktop-connector-$i-$rev"
+  higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/conn_$i.txt")" \
     --start-image "$2" --end-image "$3" \
     $VOPTS --aspect_ratio 16:9 --duration "$CONN_DUR" \
-    --wait --wait-timeout 20m --json > "$WORK/conn_$1.json" 2> "$WORK/conn_$1.err"
-  url=$(jq -r '.[0].result_url // empty' "$WORK/conn_$1.json")
-  [ -n "$url" ] && curl -fsSL "$url" -o "$WORK/conn_$1.mp4" && echo "conn $1 ok" || echo "conn $1 FAIL"
+    --wait --wait-timeout 20m --json > "$base.json" 2> "$base.err"
+  url=$(jq -r '.[0].result_url // empty' "$base.json")
+  [ -n "$url" ] && curl -fsSL "$url" -o "$base.mp4" || return 1
+  echo "STOP: present $base.mp4 with both seam comparisons; wait for approval."
 }
-set -- $NAMES ; i=0 ; prev=""
-for n in "$@"; do
-  if [ -n "$prev" ]; then i=$((i+1)); gen_conn "$i" "$WORK/last_$prev.png" "$WORK/first_$n.png" & fi
-  prev="$n"
-done ; wait
+
+# Example: generate exactly one connector candidate, then stop.
+gen_conn 01 "$WORK/approved-last-farm.png" "$WORK/approved-first-kitchen.png" r01
 ```
 
 ## 5. Encode everything for scrubbing
@@ -157,12 +193,12 @@ enc() { ffmpeg -v error -y -i "$1" -an -vf "unsharp=5:5:0.8:5:5:0.0" \
   -c:v libx264 -preset slow -crf 20 -pix_fmt yuv420p \
   -g 8 -keyint_min 8 -sc_threshold 0 -movflags +faststart "$2"; echo "enc $2 $(du -h "$2"|cut -f1)"; }
 
-# Architecture A:
-for n in $NAMES; do enc "$WORK/leg_$n.mp4" "$ASSETS/video/$n.mp4"; done
-
-# Architecture B (run instead of the line above):
-for n in $NAMES; do enc "$WORK/dive_$n.mp4" "$ASSETS/video/$n.mp4"; done
-i=0; for f in "$WORK"/conn_*.mp4; do i=$((i+1)); enc "$f" "$ASSETS/video/connector-$(printf '%02d' "$i").mp4"; done
+# Build this manifest manually from 👍 rows in the approval ledger:
+# source-absolute-or-work-path|destination-path
+APPROVED_MANIFEST="$WORK/approved-desktop-encodes.txt"
+while IFS='|' read source destination; do
+  [ -n "$source" ] && enc "$source" "$destination"
+done < "$APPROVED_MANIFEST"
 ```
 
 Now the engine config's `sections[k].clip` points at `/assets/scroll-world/video/<name>.mp4`. Architecture A uses `connectors: []`; architecture B supplies N−1 connector URLs in order.
@@ -205,7 +241,7 @@ centre-crops them; this is an explicitly approved fallback, never the native mob
 
 ## 6b. Native 9:16 portrait chain — THE mobile version (SKILL Phase 2 opt-in)
 
-When the user opts into mobile, this is what they get: a **parallel 9:16 chain** rendered
+When the user opts into mobile, this is what they get: a **separate 9:16 chain** rendered
 natively for phones and shipped as the mobile variants — never the §6 crops (those are the
 no-credits stopgap). Same seam laws as the main chain — the portrait chain frame-locks
 against its own rendered frames, never the landscape ones. Budget ~2N-1 video gens +
@@ -216,13 +252,16 @@ mobile-media interview.
    each scene onto a 1080×1920 canvas in the page bg colour (island at ~94% width, visual
    centre at ~45% height). The render then opens exactly on what the portrait poster shows.
    For knocked-out stills, composite the RGBA over the bg colour first.
-2. **Dives/legs**: same prompt templates with a portrait clause up front ("Vertical
+2. **Dives/legs**: after desktop is fully locked, generate each portrait candidate
+   individually and use the same thumbs-up/down gate. Use the same prompt templates with
+   a portrait clause up front ("Vertical
    portrait composition, the diorama centered with generous [bg] space above and below"),
    `--aspect_ratio 9:16`, same model/params as the main chain. Review each last frame
    before chaining, as ever.
-3. **Connectors**: extract first/last frames **from the 9:16 renders** and generate 9:16
-   connectors between them. A native 9:16 scene mixed into cropped-16:9 neighbours pops at
-   both seams — the portrait chain must be complete, not partial.
+3. **Connectors**: lock all portrait dives first. Extract first/last frames **from the
+   approved 9:16 renders**, then generate and approve each 9:16 connector one at a time.
+   A native 9:16 scene mixed into cropped-16:9 neighbours pops at both seams — the portrait
+   chain must be complete, not partial.
 4. **Encode** with the §6 settings but portrait-oriented scale: `scale=720:-2` (720 wide),
    `-g 4`, crf 23 → these ARE the `-m.mp4` mobile files (and they replace any §6 crop
    stopgaps that shipped earlier).
@@ -239,12 +278,13 @@ mobile-media interview.
   start/end frames: `VMODEL=kling3_0; VOPTS="--mode std --sound off"; gen_conn 3 …` —
   then restore your chain model. This preserves positional continuity but can introduce a
   subtle grain/motion-character shift, so review that seam carefully in both directions.
-- **Previz on the cheap**: run the whole chain once with `VMODEL=seedance_2_0_mini`
+- **Previz on the cheap**: work through the chain one approved candidate at a time with
+  `VMODEL=seedance_2_0_mini`
   (frame-locking intact, ~720p) to validate the journey and seams before spending
   full-model credits — because it's still seamless, the previz translates directly to the
   final render. Don't reach for reference-only models here: without `--start/--end-image`
   they can't hold a seam, so their output can't be chained (SKILL Phase 4 rule).
-- If a whole batch stalls, check `higgsfield workspace list` for credits and
-  `$WORK/*.err` for the reason.
-- Concurrency: launching ~5–6 gens at once is fine; much more can trigger transient
-  credit/race errors — stagger or re-roll.
+- If an individual job stalls, check `higgsfield workspace list` and that candidate's
+  `.err` file.
+- Paid video concurrency is intentionally **one**, regardless of account limits. The
+  approval gate is part of the deliverable, not a speed optimisation to remove.

@@ -6,7 +6,7 @@
 - **Huge clips:** all-intra encoding was used. Desktop GOP 8 is the baseline; native mobile GOP 4. Tighten only after measured decoder issues.
 - **Soft output:** source was downscaled/upscaled or over-compressed. Encode at native resolution, about CRF 20, with restrained sharpening. Never upscale Kling’s native 720p output.
 - **White box around an island:** match the page background exactly or run `knockout.py` before poster encoding. Video itself still needs a full-frame solid-background source.
-- **503 or apparent credit race:** inspect the job JSON/error and live workspace balance. Retry only the failed job; do not restart successful batches.
+- **503 or apparent credit race:** inspect the candidate JSON/error and live workspace balance. Retry only that candidate; do not touch approved outputs.
 - **Repeated content-filter rejection:** retry because some decisions are non-deterministic; then remove trigger terms and describe an empty, unoccupied, architectural scene. If still blocked, use the approved alternate provider for only that clip with the same endpoints and inspect the resulting render-character shift. Never silently leave a missing clip.
 - **Kling flag errors:** query the live model schema. Historically `kling3_0` accepts start/end images, has no resolution flag, and needs sound disabled; do not assume stale flags.
 - **Model accepts only a reference image:** reference conditioning is not frame locking. It cannot guarantee a seam and is not eligible for the chain.
@@ -16,3 +16,7 @@
 - **Mobile URL-bar jump:** do not relayout for touch height-only resize; relayout on width/orientation change.
 - **Portrait crop loses subject:** the user received desktop fallback or an explicitly approved crop, not a native portrait chain. Native 9:16 scenes need their own matching posters and every connector regenerated from portrait boundary frames.
 - **Mixed look at one seam:** models or still sources changed mid-chain. Use one still source and one video model throughout except an explicitly reviewed filter fallback.
+- **Unexpected credit burn for silent footage:** generated audio was left enabled. Query the
+  live schema and explicitly disable it; the web experience strips/mutes audio anyway.
+- **Rejected clip appears in the build:** an encode glob selected every revision. Encode
+  from the approval ledger's exact filenames only; keep rejected candidates for audit.

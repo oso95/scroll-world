@@ -24,7 +24,7 @@ test("skill frontmatter is portable and Blazor-specific", () => {
 test("plugin metadata identifies the Blazor-first PinguApps fork", async () => {
   const plugin = JSON.parse(await readFile(new URL("../.claude-plugin/plugin.json", import.meta.url), "utf8"));
   const marketplace = JSON.parse(await readFile(new URL("../.claude-plugin/marketplace.json", import.meta.url), "utf8"));
-  assert.equal(plugin.version, "1.0.0");
+  assert.equal(plugin.version, "1.1.0");
   assert.equal(plugin.author.name, "PinguApps");
   assert.equal(plugin.homepage, "https://github.com/PinguApps/scroll-world");
   assert.match(plugin.description, /Blazor Web App/);
@@ -40,6 +40,7 @@ test("all routed resources and templates exist", async () => {
     "references/site-foundation.md",
     "references/qa.md",
     "references/media-gotchas.md",
+    "references/review-workflow.md",
     "references/knockout.py",
     "assets/blazor/app-bootstrap.js",
     "assets/blazor/scroll-world-index.js.template",
@@ -150,4 +151,31 @@ test("contact template is InteractiveAuto, validated, and demo-safe", async () =
   assert.match(contactTemplate, /Nothing is sent or stored/);
   assert.match(contactTemplate, /role="status" aria-live="polite"/);
   assert.match(contactTemplate, /intentionally sends and stores nothing/);
+});
+
+test("paid video generation is one-at-a-time and approval-gated", async () => {
+  const pipeline = await read("references/pipeline.md");
+  const review = await read("references/review-workflow.md");
+  assert.match(skillSource, /Generate exactly one candidate/);
+  assert.match(skillSource, /thumbs-up\/approval or thumbs-down/);
+  assert.match(skillSource, /Draft approval does not approve the production render/);
+  assert.match(pipeline, /Never launch a whole video loop/);
+  assert.doesNotMatch(pipeline, /for n in \$NAMES; do gen_dive/);
+  assert.doesNotMatch(pipeline, /gen_conn .* &/);
+  assert.match(review, /Silence, elapsed time, or a technically valid render is never approval/);
+  assert.match(review, /approval-ledger\.md/);
+  assert.match(review, /every downstream leg is invalid/);
+  assert.match(review, /Desktop approval never carries over to\s+portrait/);
+});
+
+test("quality choices cover live production resolution paths", () => {
+  assert.match(skillSource, /seedance_2_0_mini`, 480p or 720p/);
+  assert.match(skillSource, /seedance_2_0`, Fast, 480p or 720p/);
+  assert.match(skillSource, /seedance_2_0`, Standard, 1080p/);
+  assert.match(skillSource, /seedance_2_0`, Standard, 4K/);
+  assert.match(skillSource, /Standard\/Pro\/4K mode/);
+  assert.match(skillSource, /Disable\s+generated audio/);
+  assert.match(skillSource, /gpt_image_2`: 1K\/2K\/4K/);
+  assert.match(skillSource, /nano_banana_2/);
+  assert.match(skillSource, /Never mix still models/);
 });

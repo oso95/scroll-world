@@ -15,13 +15,22 @@ Collect and write down:
 - `SECTIONS[]` — ordered list; for each: `id`, `label`, `subject` (what's in the diorama), `eyebrow`, `title`, `body` (≤ 1 sentence), `tags[]` (0–3). Last section = hero product + CTA.
 - `MOBILE` — yes/no. **Always asked** (SKILL Phase 2), presented to the user
   with the ~2× credit cost stated.
-- `VIDEO_TIER` — draft (`seedance_2_0_mini`) | standard (`seedance_2_0`, default) |
-  alternate (`kling3_0`). Chosen by cost in SKILL Phase 2, with the calibrated
-  total estimate stated before anything renders.
-- `STILLS_SOURCE` — higgsfield (`gpt_image_2`, spends credits) | codex
-  (`image_gen`, subscription-billed; only offer when the Codex CLI is present). Yes = the **native 9:16 portrait chain** (pipeline §6b):
+- `VIDEO_TIER` — draft Mini 480/720 | efficient Seedance Fast 480/720 |
+  production Seedance Standard 1080 (default) | premium Seedance Standard 4K |
+  Kling Standard/Pro/4K alternate. Inspect the live schema and show the calibrated
+  cost before anything renders.
+- `SOURCE_BITRATE` — standard (default) | high. High can improve a demanding master but
+  costs/weights more; the final web encode is still separately compressed.
+- `GENERATE_AUDIO` — no. The site is muted and native audio materially increases cost.
+- `STILLS_SOURCE` — Higgsfield `gpt_image_2` 1K/2K/4K (default 2K high) |
+  Higgsfield `nano_banana_2`/Nano Banana Pro 1K/2K/4K | Codex `image_gen`
+  (no Higgsfield credits; only offer when available). Use one source/model throughout.
+- `MOBILE=yes` means the **native 9:16 portrait chain** (pipeline §6b):
   portrait renders of every dive/connector + `clipMobile`/`connectorsMobile`/`stillMobile`
   wiring + the full mobile QA. The §6 crop encodes are a no-credits stopgap only.
+- `REVISION_ALLOWANCE` — normally 25–50% beyond the accepted-clip base count for
+  production, increased for ambitious motion. This is budget headroom, never permission
+  to batch: every candidate still goes through `review-workflow.md`.
 
 ## Style preamble (default: clay diorama)
 
@@ -95,7 +104,9 @@ reverse. That's why "ease back out" is fine mid-leg.
 
 After rendering each leg, **check its last frame** before generating the next: it should
 read as a frame from a calm forward glide (no motion blur sideways, no half-finished
-orbit). If it doesn't, re-roll this leg — a bad handoff frame poisons every leg after it.
+orbit). Present the full candidate for thumbs-up/down. If rejected, apply the user's
+feedback and revise this leg only; a bad or unapproved handoff frame must never feed the
+next leg.
 
 ## Dive-in clip prompt (SKILL Phase 4)
 
@@ -113,6 +124,9 @@ subtle parallax. No text, no captions.
 
 For scenes with no building to open (a field, a plaza, a road), replace the roof clause
 with "the camera flies low across [the scene] toward [focal point]."
+
+Generate and review dives one at a time. Lock the approved dive set before any connector
+generation.
 
 Params by chain model (SKILL Phase 4): seedance —
 `--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8`, no audio flag;
@@ -139,6 +153,10 @@ of it."
 seedance: `--mode std --resolution 1080p --aspect_ratio 16:9 --duration 5`; kling3_0:
 `--mode std --sound off --aspect_ratio 16:9 --duration 5`. Connectors need `--end-image`
 → use a roster model that accepts it (SKILL Phase 4).
+
+Generate and review connectors one at a time. Show both required seam frames beside the
+candidate boundary frames; technical frame matching does not replace human approval of
+the motion between them.
 
 ## Copy per section (for the engine config)
 

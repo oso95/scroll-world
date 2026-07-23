@@ -62,12 +62,17 @@ The skill audits these requirements but does not install tools, authenticate, sw
 
 Every run explicitly chooses:
 
-- Draft/previz (`seedance_2_0_mini`, 720p), Standard (`seedance_2_0`, 1080p), or Alternate (`kling3_0`, native 720p).
+- Draft Mini (480/720p), efficient Seedance Fast (480/720p), production Seedance Standard (1080p), premium Seedance Standard (4K), or Kling Standard/Pro/4K alternate.
 - Desktop only or a separate native 9:16 mobile chain. Native mobile roughly doubles video generation; a crop is never silently labelled mobile-optimised.
 - Continuous forward architecture for grounded worlds or dive/connector architecture for miniature worlds.
 - Higgsfield or available Codex image generation for all stills in the chain.
 
 The seam rule is strict: neighbouring clips share actual rendered boundary frames. Scroll scrubs the resulting video; it does not render 3D in the browser.
+
+Paid videos are never blasted through as a batch. The skill generates one candidate,
+shows it with its prompt/settings/cost, and waits for a thumbs-up or thumbs-down with
+feedback. Rejected revisions are preserved and logged; only an explicitly approved clip
+can unlock the next dependent generation.
 
 ## Proven interaction defaults
 
@@ -103,6 +108,7 @@ skills/scroll-world/
     ├── site-foundation.md
     ├── qa.md
     ├── media-gotchas.md
+    ├── review-workflow.md
     └── knockout.py
 ```
 
