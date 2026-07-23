@@ -1,5 +1,6 @@
 # scroll-world
 
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
 https://github.com/user-attachments/assets/b08e641e-985b-4bd4-83ff-6750272d0c37
 
