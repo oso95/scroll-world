@@ -213,8 +213,9 @@ function mountScrollWorld(container, config) {
         // Reveal the video (hide the still poster) only once a real frame has
         // painted — on iOS a seeked-but-never-played muted video stays blank, so
         // hiding the still on metadata alone would flash an empty scene.
-        v.addEventListener('seeked', () => { s.el.classList.add('has-clip'); }, { once: true });
-        v.addEventListener('loadeddata', () => { try { v.pause(); } catch (e) {} if (userReady) primeVideo(v); });
+        if (v.requestVideoFrameCallback) { v.requestVideoFrameCallback(() => { s.el.classList.add('has-clip'); }); }
+        else { v.addEventListener('seeked', () => { s.el.classList.add('has-clip'); }, { once: true }); }
+        v.addEventListener('loadeddata', () => { try { v.pause(); } catch (e) {} if (userReady || !isMobile()) primeVideo(v); });
         s.el.appendChild(v); s.video = v; s.hasClip = true;
       }).catch(() => { s.loading = false; });
   }
@@ -294,7 +295,7 @@ function mountScrollWorld(container, config) {
   // clips prime themselves (see loadClip).
   let userReady = false;
   function primeVideo(v) {
-    if (!isMobile() || !v) return;
+    if (!v) return;
     try { const p = v.play(); if (p && p.then) p.then(() => { try { v.pause(); } catch (e) {} }).catch(() => {}); }
     catch (e) {}
   }
