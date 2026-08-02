@@ -243,6 +243,12 @@ Subject: <what is in THIS diorama>.
   waiting for input (Gotchas). Output lands at
   1536×1024 (3:2) — fine for `--start-image` and posters. Everything downstream
   (cohesion review, knockout, dives) is unchanged.
+- **MiniMax stills variant**: use `references/minimax_image.py` with `image-01`.
+  Set `MINIMAX_API_KEY`, choose `MINIMAX_REGION=global_en` or `cn_zh`, and write one
+  PNG per prompt file before the normal webp conversion. The helper sends `model`,
+  `prompt`, `aspect_ratio`, `response_format`, `seed`, `n`, `width`, `height`,
+  `prompt_optimizer`, and `subject_reference` when provided, and reads generated images
+  from `data.image_urls` or base64 image fields.
 - A generation may fail transiently (HTTP 503) — re-roll that one individually; don't
   restart the batch.
 - **Review the stills before continuing.** They must read as one cohesive world (same

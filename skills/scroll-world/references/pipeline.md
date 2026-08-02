@@ -54,6 +54,21 @@ gen_still_codex() { # name   (< /dev/null is REQUIRED for parallel calls — see
 }
 ```
 
+MiniMax variant (STILLS_SOURCE=minimax, SKILL Step 1.7; set `MINIMAX_API_KEY` and
+optionally `MINIMAX_REGION=global_en|cn_zh`):
+
+```bash
+gen_still_minimax() { # name
+  python3 skills/scroll-world/references/minimax_image.py \
+    --prompt-file "$WORK/still_$1.txt" \
+    --output "$WORK/still_$1.png" \
+    --aspect-ratio 3:2 \
+    --response-format base64 \
+    > "$WORK/still_$1.minimax.log" 2>&1
+  [ -f "$WORK/still_$1.png" ] && echo "still $1 ok (minimax)" || echo "still $1 FAIL (see .minimax.log)"
+}
+```
+
 Convert to webp for the site (and optionally run knockout.py first for transparency):
 
 ```bash

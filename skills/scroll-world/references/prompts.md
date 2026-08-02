@@ -28,7 +28,8 @@ Collect and write down:
   Chosen by cost at SKILL Step 1.7, with the estimated total stated before
   anything renders.
 - `STILLS_SOURCE` — higgsfield (`gpt_image_2`, spends credits) | codex
-  (`image_gen`, subscription-billed; only offer when the Codex CLI is present).
+  (`image_gen`, subscription-billed; only offer when the Codex CLI is present) |
+  minimax (`image-01`; see `references/minimax-image.md`).
 
 ## Style preamble (default: clay diorama)
 
