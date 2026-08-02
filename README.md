@@ -57,19 +57,27 @@ cp -R scroll-world/skills/scroll-world ~/.codex/skills/    # Codex
 - The [Codex CLI](https://github.com/openai/codex) (optional) — if present, the scene
   stills can be generated through Codex's built-in `image_gen` (the same GPT Image
   model), billed to a ChatGPT subscription instead of Higgsfield credits.
+- **[OpenRouter](https://openrouter.ai) (optional, opt-in)** — if `OPENROUTER_API_KEY`
+  is set, the AWS CLI can reach a **public** S3 bucket for frame hosting, and
+  `bytedance/seedance-2.0` reports first+last frame support, the skill **offers**
+  OpenRouter at budget time as an alternate pay-per-clip biller (same Seedance /
+  gpt-image-2 models via HTTP). It is never the silent default — Monid stays
+  default; Higgsfield stays the NSFW/`kling3_0` home.
 - About the Monid default: verified 2026-07-25 — first/last-frame conditioning
   frame-locks, so it renders the full seamless chain; frames travel via Monid's
   free workspace file system. Pay-per-use with no subscription or monthly expiry
   (a 6-scene 1080p chain ≈ $27). The skill re-checks the endpoint schema each
   build and keeps qualification probes in the pipeline for when the catalog
-  changes; Higgsfield credits remain the fallback biller.
+  changes; Higgsfield credits remain the fallback biller; OpenRouter is an
+  explicit opt-in when its capability check passes.
 
 ## What it does
 
 It generates the art with AI: cohesive isometric diorama scenes (GPT Image 2 — via
 Higgsfield, or the Codex CLI on a ChatGPT subscription) and the camera flights
 themselves (Seedance image-to-video via **Monid by default**, pay-per-clip; Seedance
-or Kling on Higgsfield credits as fallback — only models that can frame-lock a
+or Kling on Higgsfield credits as fallback; **OpenRouter as an opt-in** alternate
+when its Step 0 capability check passes — only models that can frame-lock a
 seam), scrubbed
 by scroll position — the same technique behind Apple's scroll-through product pages. The
 camera genuinely moves; scroll only drives time. It's **framework-agnostic**: you get the
@@ -108,9 +116,11 @@ skills/scroll-world/
 ## Notes
 
 - Asset generation costs money (~N image gens on Higgsfield credits + ~2N-1 video
-  gens billed per clip on Monid by default; the mobile chain doubles the video gens)
+  gens billed per clip on Monid by default; the mobile chain doubles the video gens;
+  OpenRouter opt-in bills stills + video per completed job in USD instead)
   and takes a while — the skill runs generations in the background and polls. Monid
-  pricing is per-token and printed per run; Higgsfield pricing isn't exposed by its
+  pricing is per-token and printed per run; OpenRouter prints `usage.cost` per job;
+  Higgsfield pricing isn't exposed by its
   CLI, so the skill calibrates against your live balance. Either way the estimated
   total is stated before spending.
 - The generated `.mp4`/`.webp` assets are produced per project; they're not shipped here.

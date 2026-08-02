@@ -25,10 +25,14 @@ Collect and write down:
 - `VIDEO_TIER` — default is `seedance_2_0` **via Monid** (pay-per-clip; previz =
   same endpoint at 480p, final at 1080p). Higgsfield-credit alternates: draft
   (`seedance_2_0_mini`) | standard (`seedance_2_0`) | alternate (`kling3_0`).
+  Opt-in when Step 0.6 passes: **OpenRouter** `bytedance/seedance-2.0` at
+  480p/720p/1080p (same model, public S3 for frames — never silent-default).
   Chosen by cost at SKILL Step 1.7, with the estimated total stated before
-  anything renders.
+  anything renders. Record `VIDEO_BACKEND=monid|higgsfield|openrouter`.
 - `STILLS_SOURCE` — higgsfield (`gpt_image_2`, spends credits) | codex
-  (`image_gen`, subscription-billed; only offer when the Codex CLI is present).
+  (`image_gen`, subscription-billed; only offer when the Codex CLI is present) |
+  openrouter (`openai/gpt-image-2`, pay-per-image; only offer when Step 0.6
+  passed).
 
 ## Style preamble (default: clay diorama)
 

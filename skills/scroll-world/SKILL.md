@@ -10,7 +10,9 @@ description: >
   clips with Higgsfield and wires a portable, framework-agnostic scroll-scrub engine.
   The video chain renders through Monid by default (Seedance 2.0, pay-per-clip
   USD — capability re-checked each build, see Step 4) with Higgsfield credits as
-  the fallback biller. Use when the user wants a "3D world" /
+  the fallback biller, and OpenRouter as an optional opt-in biller (same Seedance
+  model via API + a public S3 bucket for frames — only offered when the capability
+  check in Step 0 passes). Use when the user wants a "3D world" /
   "browse-through-the-industry" hero, a scroll cinematic, a diorama landing, or to
   turn a business into a scrollable world.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
@@ -20,8 +22,9 @@ allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
 
 Produces a landing page where **scroll drives a camera**: it dives from outside a scene
 into its interior, then flies out and into the next scene, continuously, with no visible
-cuts. The visuals are AI-generated — stills via Higgsfield (or Codex), the video chain
-via **Monid by default** (pay-per-clip Seedance 2.0; Higgsfield credits as fallback) —
+cuts. The visuals are AI-generated — stills via Higgsfield (or Codex, or optionally
+OpenRouter), the video chain via **Monid by default** (pay-per-clip Seedance 2.0;
+Higgsfield credits as fallback; **OpenRouter as opt-in** when Step 0 detects it) —
 and the page just scrubs pre-rendered video by scroll position. This is the same technique behind Apple's scroll-through product
 pages — the camera genuinely moves, scroll only drives time.
 
@@ -65,13 +68,33 @@ not the framework.
    through Codex's built-in `image_gen` (the same gpt-image-2 model) billed to the
    user's ChatGPT subscription instead of Higgsfield credits — offer it at
    Step 1.7, command in Step 2. Absence just removes the option.
-6. Caveats: macOS ships **bash 3.2** (no `declare -A`); don't use associative arrays in
+6. **(Optional) OpenRouter — opt-in alternate biller, never the silent default.**
+   Check whether the build *can* use OpenRouter; do **not** auto-select it over
+   Monid/Higgsfield. All of the following must pass:
+   - `OPENROUTER_API_KEY` is set (env or project `.env`)
+   - `curl` + `jq` + `openssl` on `$PATH` (Images API returns `b64_json`)
+   - `aws` CLI authenticated to a **public** S3 bucket (OpenRouter
+     `frame_images` require anonymous `https://` URLs — Monid's free `sfs` is
+     not used on this path). Confirm `SCROLL_WORLD_S3_BUCKET` +
+     `SCROLL_WORLD_S3_REGION` (or ask the user for an equivalent public bucket
+     with `s3:GetObject` for `*`)
+   - Capability probe: `curl -fsS -H "Authorization: Bearer $OPENROUTER_API_KEY"
+     https://openrouter.ai/api/v1/videos/models | jq '.data[] | select(.id==
+     "bytedance/seedance-2.0") | .supported_frame_images'` must list both
+     `first_frame` and `last_frame`
+   If every check passes, mark `OPENROUTER_AVAILABLE=true` and **offer** it at
+   Step 1.7 as a third backend choice (stills via `openai/gpt-image-2`, video
+   via `bytedance/seedance-2.0` — wiring in pipeline.md → OpenRouter backend).
+   Absence just removes the option; Monid remains the default.
+7. Caveats: macOS ships **bash 3.2** (no `declare -A`); don't use associative arrays in
    scripts. Higgsfield generations take **3–8 min each** — always run them detached
    (background) and poll, never a foreground blocking call. Reference-by-job-UUID is
    rejected by media flags — pass **local file paths** to `--image/--start-image/--end-image`.
    Video models differ in accepted params (e.g. Kling has no `--resolution`) and in whether
    they support start/end-image conditioning at all — before batching, confirm the chosen
    model's schema with `higgsfield model get <job_type>` and see the Step 4 model table.
+   OpenRouter video jobs are async (submit → poll `GET /api/v1/videos/{id}`) — same
+   detached/poll rule as Higgsfield.
 
 ---
 
@@ -180,15 +203,28 @@ default. Cover:
      chain on the other biller is a reasonable rescue — but the serving stacks
      differ and cross-provider seam character is **untested**: eyeball the first
      rescued seam before rendering the rest, same as any model swap.
-   - **Stills source** (only offer if the Codex CLI is present, Step 0.5):
-     Higgsfield `gpt_image_2` (spends credits) vs **Codex `image_gen`** — the same
-     gpt-image-2 model billed to the ChatGPT subscription (zero credits; counts
-     toward Codex usage limits; 1536×1024 output — exactly 3:2, slightly under
-     Higgsfield's 2k). Stills are plain PNGs handed to `--start-image`, so the
-     video chain is indifferent to their source. Command in Step 2. **One source
-     for all N stills of a build** — the two render with slightly different
-     character (verified: Codex runs warmer/lighter), and mixing sources across
-     scenes reads as style drift, same reason the video chain uses one model.
+   - **OpenRouter — OPT-IN only** (offer only when Step 0.6 marked
+     `OPENROUTER_AVAILABLE=true`; never silent-default over Monid). Same
+     underlying Seedance 2.0 (`bytedance/seedance-2.0`) and gpt-image-2
+     (`openai/gpt-image-2`) via OpenRouter's Images + Videos HTTP APIs, billed
+     per completed job in USD (`usage.cost`). Frames need a **public S3 bucket**
+     (not Monid `sfs`). Measured 2026-08-02: stills ≈ $0.17 each; 8s dive ≈
+     $0.54 / 480p, $1.21 / 720p; 5s connector ≈ $0.34 / 480p, $0.76 / 720p — an
+     N=6 Architecture B previz (480p) chain ≈ $6. Ask as a third backend choice
+     next to Monid / Higgsfield when available (`AskUserQuestion`). Record
+     `VIDEO_BACKEND=openrouter` + `STILLS_SOURCE=openrouter` (or keep stills on
+     Higgsfield/Codex — the chain is indifferent to still source). **No
+     `kling3_0` on this path** — NSFW re-rolls that need Kling must leave the
+     OpenRouter chain and finish that one clip on Higgsfield (eyeball the seam).
+     Wiring: pipeline.md → OpenRouter backend.
+   - **Stills source** (Codex only if Step 0.5 present; OpenRouter only if Step
+     0.6 present): Higgsfield `gpt_image_2` (spends credits) vs **Codex
+     `image_gen`** (ChatGPT subscription) vs **OpenRouter `openai/gpt-image-2`**
+     (pay-per-image USD; no `resolution` param — `aspect_ratio` + `quality`
+     only). Stills are plain PNGs handed to `--start-image` / `first_frame`, so
+     the video chain is indifferent to their source. Command in Step 2. **One
+     source for all N stills of a build** — mixing sources across scenes reads
+     as style drift, same reason the video chain uses one model.
    - **Calibrate costs, don't guess.** The CLI exposes no pricing and plans differ.
      Run ONE still and ONE video first, diff `higgsfield workspace list` before/
      after, extrapolate to the full run, and warn the user whenever the estimate
@@ -243,6 +279,12 @@ Subject: <what is in THIS diorama>.
   waiting for input (Gotchas). Output lands at
   1536×1024 (3:2) — fine for `--start-image` and posters. Everything downstream
   (cohesion review, knockout, dives) is unchanged.
+- **OpenRouter stills variant** (if chosen at Step 1.7 — only when Step 0.6
+  passed): same prompt files via `POST /api/v1/images` with
+  `model:"openai/gpt-image-2"`, `aspect_ratio:"3:2"`, `quality:"high"` — **no
+  `resolution` param** (the model rejects it). Decode `.data[0].b64_json` with
+  `openssl base64 -d -A`. Full helper in pipeline.md → OpenRouter backend
+  (`gen_still_openrouter`).
 - A generation may fail transiently (HTTP 503) — re-roll that one individually; don't
   restart the batch.
 - **Review the stills before continuing.** They must read as one cohesive world (same
@@ -365,6 +407,37 @@ advertised cell; (2) for connector duty, add a `last_frame` from a different
 still — the end must land on that composition (Seedance-style near-miss is fine,
 the crossfade covers it). Pass → pay-per-clip tier (arch A if start-only; full
 roster if start+end).
+
+### OpenRouter backend — OPT-IN alternate biller (qualified 2026-08-02)
+
+OpenRouter's **`bytedance/seedance-2.0`** (`POST /api/v1/videos`) is the same
+underlying Seedance model as Monid/Higgsfield, served through OpenRouter's
+normalized video API. **Only use when the user picked it at Step 1.7** after
+Step 0.6 marked it available — never as a silent replacement for Monid.
+
+Wiring in pipeline.md → "OpenRouter backend". Three I/O rules that differ from
+Monid/`sfs`:
+
+1. **Images go by public HTTPS URL.** `frame_images` entries use
+   `frame_type:"first_frame"|"last_frame"`; inline base64 is rejected. Host
+   frames on a dedicated public S3 bucket (`s3_frame_url` helper) — Monid `sfs`
+   is not used on this path.
+2. **Requests are asynchronous.** Submit returns `{id, status:"pending"}`; poll
+   `GET /api/v1/videos/{id}` until `completed` / terminal failure, then download
+   `unsigned_urls[0]` with the same bearer token.
+3. **Bill-check every clip**: read `usage.cost` off the completed job. Failed /
+   cancelled jobs are **not billed**.
+
+**Qualification (re-run when `GET /api/v1/videos/models` schema changes):** (1)
+prompt + `first_frame` from a real still — frame 0 must match by eye / PSNR ≳
+30 dB; (2) connector with `last_frame` from a different still — end lands on
+that composition. Measured 2026-08-02: 2-scene/720p probe ≈ $3.51; full N=6 /
+Architecture B / 480p previz ≈ $5.91.
+
+Stills on the same path: `openai/gpt-image-2` via `POST /api/v1/images` (no
+`resolution` param). NSFW: there is no Kling on OpenRouter in this skill —
+re-roll a flagged clip on Higgsfield `kling3_0` with the same seam frames and
+eyeball the join before continuing.
 
 ### A) Continuous forward take — RECOMMENDED for grounded / realistic / walkthrough
 One camera that only ever glides **forward**, first scene through last, as a single take.
@@ -736,6 +809,18 @@ is the thing most likely to be wrong:
   late July 2026, then gained first/last-frame support). `monid inspect` before each
   build; re-run the Step 4 qualification probes when the Input schema differs from
   what pipeline.md documents.
+- **OpenRouter rejects frame_images / 401** → needs a public `https://` URL (S3
+  bucket with anonymous `s3:GetObject`), not Monid `sfs` and not inline base64.
+  Confirm `OPENROUTER_API_KEY` (no duplicated `sk-` prefix) and that
+  `SCROLL_WORLD_S3_BUCKET` objects are world-readable. Re-check
+  `GET /api/v1/videos/models` for `bytedance/seedance-2.0` →
+  `supported_frame_images` includes both `first_frame` and `last_frame`.
+- **OpenRouter still fails with "resolution"** → `openai/gpt-image-2` has no
+  `resolution` field — pass only `aspect_ratio` + `quality`.
+- **OpenRouter job stuck pending** → poll `GET /api/v1/videos/{id}`; download
+  from `unsigned_urls[0]` with the bearer token as soon as `status` is
+  `completed` (URLs expire). Failed jobs return terminal `failed` / HTTP 502 and
+  are not billed — safe to re-roll.
 - **Codex stills hang at "Reading additional input from stdin..."** → parallel
   `codex exec` calls launched from one script share the parent's stdin; one wins it,
   the rest block forever (observed: 1 of 3 completed, 2 hung, the second batch never
@@ -754,7 +839,8 @@ is the thing most likely to be wrong:
 - `references/prompts.md` — the intake checklist, style-preamble pattern, and every
   prompt template (scene still, dive, connector) with fill-in slots.
 - `references/pipeline.md` — copy-paste batch scripts for the whole run (generate →
-  extract frames → connectors → encode → mobile encode), bash-3.2-safe.
+  extract frames → connectors → encode → mobile encode), bash-3.2-safe; §7 Monid
+  (default), §8 OpenRouter (opt-in).
 - `references/scrub-engine.js` — the portable, config-driven scrub engine (builds DOM +
   injects CSS; blob-seek, lazy load, seam crossfade, copy, route rail, reduced-motion, and
   phone hardening: mobile encodes, seek-coalescing, iOS priming, safe-area, no-jump resize).

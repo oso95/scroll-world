@@ -15,6 +15,8 @@ NAMES="farm kitchen shop delivery plaza finale"   # <-- your section ids, in ord
 # DEFAULT backend: Monid pay-per-clip (§7 — gen_dive_monid/gen_conn_monid with
 # VRES=1080p|720p|480p instead of VOPTS). The gen_dive/gen_conn functions in §2/§4
 # below are the Higgsfield-credits FALLBACK (and the only home of kling3_0/mini).
+# OPT-IN backend: OpenRouter (§8 — gen_*_openrouter) when Step 0.6 / Step 1.7
+# selected VIDEO_BACKEND=openrouter — never auto-selected over Monid.
 VMODEL=seedance_2_0
 case "$VMODEL" in                                  # per-model flags + durations (bash 3.2 safe)
   kling3_0)          VOPTS="--mode std --sound off";          DIVE_DUR=10; CONN_DUR=5 ;;  # no --resolution param on Kling
@@ -286,6 +288,128 @@ that composition (Seedance-style near-miss ok — the crossfade covers it). Know
 failure to watch for (it's why the harness exists): `minimax /v1/video_generation`
 still silently drops the image when `prompt` is present — image-only output proves
 nothing about steerability.
+
+## 8. OpenRouter backend — OPT-IN (qualified 2026-08-02)
+
+Use these functions **only** when the user chose OpenRouter at SKILL Step 1.7
+(`VIDEO_BACKEND=openrouter`) after Step 0.6 marked it available. Monid remains
+the default (§7). Same chain laws — only the I/O differs: frames ride a **public
+S3 bucket** (not Monid `sfs`), requests are async HTTP, and stills can also come
+from OpenRouter's Images API.
+
+Requires `OPENROUTER_API_KEY`, `SCROLL_WORLD_S3_BUCKET`, `SCROLL_WORLD_S3_REGION`,
+`aws` CLI, `curl`, `jq`, `openssl`. Load env once:
+
+```bash
+set -a; . ./.env; set +a   # or wherever OPENROUTER_API_KEY + S3 vars live
+RUN_ID=$(date +%Y%m%d-%H%M%S)
+VMODEL=bytedance/seedance-2.0
+VRES=1080p                 # 480p previz | 720p | 1080p
+DIVE_DUR=8; CONN_DUR=5
+```
+
+```bash
+# helper: upload a local frame to the public bucket, print its public URL.
+s3_frame_url() { # localPng remoteName
+  jpg="$WORK/s3_$2.jpg"
+  ffmpeg -v error -y -i "$1" -vf "scale='min(1536,iw)':-2" -q:v 2 "$jpg"
+  key="scroll-world/$RUN_ID/$2.jpg"
+  aws s3 cp "$jpg" "s3://$SCROLL_WORLD_S3_BUCKET/$key" --content-type image/jpeg --only-show-errors
+  echo "https://$SCROLL_WORLD_S3_BUCKET.s3.$SCROLL_WORLD_S3_REGION.amazonaws.com/$key"
+}
+
+# fire-and-poll (OpenRouter video jobs are async)
+or_wait() { # jobId outJson
+  pollUrl="https://openrouter.ai/api/v1/videos/$1"
+  while :; do
+    curl -fsS -H "Authorization: Bearer $OPENROUTER_API_KEY" "$pollUrl" > "$2" 2>/dev/null
+    case "$(jq -r '.status // empty' "$2")" in
+      completed|failed|cancelled|expired) break ;;
+    esac
+    sleep 15
+  done
+}
+
+gen_still_openrouter() { # name   (gpt-image-2: no resolution param)
+  jq -n --arg p "$(cat "$WORK/still_$1.txt")" \
+    '{model:"openai/gpt-image-2", prompt:$p, aspect_ratio:"3:2",
+      quality:"high", n:1}' > "$WORK/still_$1.body.json"
+  curl -fsS "https://openrouter.ai/api/v1/images" \
+    -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "Content-Type: application/json" \
+    -d @"$WORK/still_$1.body.json" > "$WORK/still_$1.json" 2> "$WORK/still_$1.err"
+  b64=$(jq -r '.data[0].b64_json // empty' "$WORK/still_$1.json")
+  if [ -n "$b64" ]; then
+    printf '%s' "$b64" | openssl base64 -d -A > "$WORK/still_$1.png"
+    echo "still $1 ok (\$$(jq -r '.usage.cost // "?"' "$WORK/still_$1.json"))"
+  else
+    echo "still $1 FAIL ($(jq -r '.error.message // "see .json/.err"' "$WORK/still_$1.json"))"
+  fi
+}
+
+gen_dive_openrouter() { # name
+  furl=$(s3_frame_url "$WORK/still_$1.png" "still_$1")
+  jq -n --arg m "$VMODEL" --arg p "$(cat "$WORK/dive_$1.txt")" --arg u "$furl" --arg r "$VRES" \
+    '{model:$m, prompt:$p, duration:'"$DIVE_DUR"', resolution:$r, aspect_ratio:"16:9",
+      generate_audio:false,
+      frame_images:[{type:"image_url",image_url:{url:$u},frame_type:"first_frame"}]}' \
+    > "$WORK/dive_$1.body.json"
+  curl -fsS "https://openrouter.ai/api/v1/videos" \
+    -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "Content-Type: application/json" \
+    -d @"$WORK/dive_$1.body.json" > "$WORK/dive_$1.submit.json" 2> "$WORK/dive_$1.err"
+  jobId=$(jq -r '.id // empty' "$WORK/dive_$1.submit.json")
+  if [ -z "$jobId" ]; then echo "dive $1 FAIL (submit)"; return; fi
+  or_wait "$jobId" "$WORK/dive_$1.json"
+  status=$(jq -r '.status' "$WORK/dive_$1.json")
+  url=$(jq -r '.unsigned_urls[0] // empty' "$WORK/dive_$1.json")
+  if [ "$status" = "completed" ] && [ -n "$url" ]; then
+    curl -fsSL -H "Authorization: Bearer $OPENROUTER_API_KEY" "$url" -o "$WORK/dive_$1.mp4"
+    echo "dive $1 ok (\$$(jq -r '.usage.cost // "?"' "$WORK/dive_$1.json"))"
+  else
+    echo "dive $1 FAIL ($status)"
+  fi
+}
+
+gen_conn_openrouter() { # i startPng endPng
+  su=$(s3_frame_url "$2" "conn${1}_start")
+  eu=$(s3_frame_url "$3" "conn${1}_end")
+  jq -n --arg m "$VMODEL" --arg p "$(cat "$WORK/conn_$1.txt")" --arg s "$su" --arg e "$eu" --arg r "$VRES" \
+    '{model:$m, prompt:$p, duration:'"$CONN_DUR"', resolution:$r, aspect_ratio:"16:9",
+      generate_audio:false,
+      frame_images:[{type:"image_url",image_url:{url:$s},frame_type:"first_frame"},
+                     {type:"image_url",image_url:{url:$e},frame_type:"last_frame"}]}' \
+    > "$WORK/conn_$1.body.json"
+  curl -fsS "https://openrouter.ai/api/v1/videos" \
+    -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "Content-Type: application/json" \
+    -d @"$WORK/conn_$1.body.json" > "$WORK/conn_$1.submit.json" 2> "$WORK/conn_$1.err"
+  jobId=$(jq -r '.id // empty' "$WORK/conn_$1.submit.json")
+  if [ -z "$jobId" ]; then echo "conn $1 FAIL (submit)"; return; fi
+  or_wait "$jobId" "$WORK/conn_$1.json"
+  status=$(jq -r '.status' "$WORK/conn_$1.json")
+  url=$(jq -r '.unsigned_urls[0] // empty' "$WORK/conn_$1.json")
+  if [ "$status" = "completed" ] && [ -n "$url" ]; then
+    curl -fsSL -H "Authorization: Bearer $OPENROUTER_API_KEY" "$url" -o "$WORK/conn_$1.mp4"
+    echo "conn $1 ok (\$$(jq -r '.usage.cost // "?"' "$WORK/conn_$1.json"))"
+  else
+    echo "conn $1 FAIL ($status)"
+  fi
+}
+```
+
+Usage: same loops as §2/§4 with `gen_still_openrouter` / `gen_dive_openrouter` /
+`gen_conn_openrouter`. Mobile chain: `aspect_ratio:"9:16"` + §6b portrait canvases.
+Previz: `VRES=480p`. Read `usage.cost` per clip. Failed jobs are not billed.
+Frame extraction, encoding, QA: identical to the Monid/Higgsfield path.
+**No Kling on this path** — NSFW re-rolls that need `kling3_0` finish that one clip
+on Higgsfield with the same seam frames (eyeball the join).
+
+**Capability check before offering** (SKILL Step 0.6):
+
+```bash
+# must list both first_frame and last_frame
+curl -fsS -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+  https://openrouter.ai/api/v1/videos/models \
+  | jq '.data[] | select(.id=="bytedance/seedance-2.0") | .supported_frame_images'
+```
 
 ## Notes
 
