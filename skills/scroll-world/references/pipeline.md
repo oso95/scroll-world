@@ -18,7 +18,7 @@ NAMES="farm kitchen shop delivery plaza finale"   # <-- your section ids, in ord
 VMODEL=seedance_2_0
 case "$VMODEL" in                                  # per-model flags + durations (bash 3.2 safe)
   kling3_0)          VOPTS="--mode std --sound off";          DIVE_DUR=10; CONN_DUR=5 ;;  # no --resolution param on Kling
-  seedance_2_0_mini) VOPTS="--mode std --resolution 720p";    DIVE_DUR=8;  CONN_DUR=5 ;;  # cheap frame-locked previz
+  seedance_2_0_mini) VOPTS="--resolution 720p";                DIVE_DUR=8;  CONN_DUR=5 ;;  # NO --mode on mini: the CLI rejects it
   *)                 VOPTS="--mode std --resolution 1080p";   DIVE_DUR=8;  CONN_DUR=5 ;;  # seedance_2_0 default
 esac
 ```
@@ -71,7 +71,7 @@ Prompt files at `$WORK/dive_<name>.txt`. Start image = the solid-bg still PNG.
 gen_dive() { # name                       ($VOPTS is unquoted on purpose — word-split flags)
   higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/dive_$1.txt")" \
     --start-image "$WORK/still_$1.png" \
-    $VOPTS --aspect_ratio 16:9 --duration "$DIVE_DUR" \
+    $VOPTS --aspect_ratio 16:9 --duration "$DIVE_DUR" --generate-audio false \
     --wait --wait-timeout 20m --json > "$WORK/dive_$1.json" 2> "$WORK/dive_$1.err"
   url=$(jq -r '.[0].result_url // empty' "$WORK/dive_$1.json")
   [ -n "$url" ] && curl -fsSL "$url" -o "$WORK/dive_$1.mp4" && echo "dive $1 ok" || echo "dive $1 FAIL"
@@ -104,7 +104,7 @@ Prompt files at `$WORK/conn_<i>.txt` (i = 1..N-1). Iterate adjacent pairs:
 gen_conn() { # i startPng endPng          (end-image required → seedance/kling3_0 only)
   higgsfield generate create "$VMODEL" --prompt "$(cat "$WORK/conn_$1.txt")" \
     --start-image "$2" --end-image "$3" \
-    $VOPTS --aspect_ratio 16:9 --duration "$CONN_DUR" \
+    $VOPTS --aspect_ratio 16:9 --duration "$CONN_DUR" --generate-audio false \
     --wait --wait-timeout 20m --json > "$WORK/conn_$1.json" 2> "$WORK/conn_$1.err"
   url=$(jq -r '.[0].result_url // empty' "$WORK/conn_$1.json")
   [ -n "$url" ] && curl -fsSL "$url" -o "$WORK/conn_$1.mp4" && echo "conn $1 ok" || echo "conn $1 FAIL"
@@ -128,7 +128,7 @@ enc() { ffmpeg -v error -y -i "$1" -an -vf "unsharp=5:5:0.8:5:5:0.0" \
   -g 8 -keyint_min 8 -sc_threshold 0 -movflags +faststart "$2"; echo "enc $2 $(du -h "$2"|cut -f1)"; }
 
 for n in $NAMES; do enc "$WORK/dive_$n.mp4" "$ASSETS/vid/$n.mp4"; done
-i=0; for f in "$WORK"/conn_*.mp4; do i=$((i+1)); enc "$f" "$ASSETS/vid/conn$i.mp4"; done
+i=1; while [ -f "$WORK/conn_$i.mp4" ]; do enc "$WORK/conn_$i.mp4" "$ASSETS/vid/conn$i.mp4"; i=$((i+1)); done  # index order: conn_10 sorts before conn_2
 ```
 
 Now the engine config's `sections[k].clip = assets/vid/<name>.mp4` and
@@ -153,7 +153,7 @@ encm() { ffmpeg -v error -y -i "$1" -an -vf "scale=-2:720,unsharp=5:5:0.6:5:5:0.
   -g 4 -keyint_min 4 -sc_threshold 0 -movflags +faststart "$2"; echo "encm $2 $(du -h "$2"|cut -f1)"; }
 
 for n in $NAMES; do encm "$WORK/dive_$n.mp4" "$ASSETS/vid/$n-m.mp4"; done
-i=0; for f in "$WORK"/conn_*.mp4; do i=$((i+1)); encm "$f" "$ASSETS/vid/conn$i-m.mp4"; done
+i=1; while [ -f "$WORK/conn_$i.mp4" ]; do encm "$WORK/conn_$i.mp4" "$ASSETS/vid/conn$i-m.mp4"; i=$((i+1)); done
 ```
 
 Wire the variants in the engine config — the engine serves them automatically on phones,
@@ -207,7 +207,7 @@ differs: **frames ride Monid's free `sfs` file
 system** (inline base64 is rejected), **`ratio` must be explicit** (the adaptive
 default follows the input image's aspect), and runs are fire-and-poll. Token-priced
 `w×h×24×sec/1024` at $7/1M (480p/720p), $7.7/1M (1080p) — measured: 1080p ≈ $2.99
-dive / $1.87 connector; 720p ≈ $1.21 / $0.76; 480p previz ≈ $0.28 / $0.35.
+dive / $1.87 connector; 720p ≈ $1.21 / $0.76; 480p previz ≈ $0.54 / $0.34.
 
 ```bash
 # helper: upload a local frame to sfs, print a signed public URL for it ($0).
@@ -216,7 +216,7 @@ dive / $1.87 connector; 720p ≈ $1.21 / $0.76; 480p previz ≈ $0.28 / $0.35.
 monid_frame_url() { # localPng remoteName  (JPEG-compresses on the way up)
   jpg="$WORK/sfs_$2.jpg"
   ffmpeg -v error -y -i "$1" -vf "scale='min(1536,iw)':-2" -q:v 2 "$jpg"
-  size=$(stat -f%z "$jpg")
+  size=$(wc -c < "$jpg" | tr -d " ")     # portable; stat -f%z is macOS-only, stat -c%s is GNU-only
   up=$(NO_COLOR=1 monid run -p sfs -e /put \
     -i "{\"path\":\"chain/$2.jpg\",\"sizeBytes\":$size,\"ttl\":\"1h\"}" -w 60 -j \
     | jq -r '.output.uploadUrl')
