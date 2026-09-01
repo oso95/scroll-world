@@ -2,15 +2,15 @@
 name: scroll-world
 description: >
   Build an immersive scroll-scrubbed "fly through the world" landing page for any
-  industry or brand using Higgsfield. As the visitor scrolls, a pre-rendered camera
-  flies from outside each scene into its interior, then flows on to the next scene
-  with NO cuts — one continuous connected flight (Emons-style isometric diorama world,
-  or any art direction you pick). The skill interviews the user for the topic, the
-  story beats/sections, and brand kit, then generates cohesive scenes + seamless camera
-  clips with Higgsfield and wires a portable, framework-agnostic scroll-scrub engine.
-  The video chain renders through Monid by default (Seedance 2.0, pay-per-clip
-  USD — capability re-checked each build, see Step 4) with Higgsfield credits as
-  the fallback biller. Use when the user wants a "3D world" /
+  industry or brand. As the visitor scrolls, a pre-rendered camera flies from
+  outside each scene into its interior, then flows on to the next scene with NO
+  cuts — one continuous connected flight (Emons-style isometric diorama world, or
+  any art direction you pick). The skill interviews the user for the topic, the
+  story beats/sections, and brand kit, then generates cohesive scenes + seamless
+  camera clips and wires a portable, framework-agnostic scroll-scrub engine. The
+  chain is one model (Seedance 2.0) on your choice of biller — Monid pay-per-clip
+  by default, fal.ai (no CLI, lossless seams), or Higgsfield credits; capability
+  re-checked each build, see Step 4. Use when the user wants a "3D world" /
   "browse-through-the-industry" hero, a scroll cinematic, a diorama landing, or to
   turn a business into a scrollable world.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
@@ -20,10 +20,11 @@ allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill
 
 Produces a landing page where **scroll drives a camera**: it dives from outside a scene
 into its interior, then flies out and into the next scene, continuously, with no visible
-cuts. The visuals are AI-generated — stills via Higgsfield (or Codex), the video chain
-via **Monid by default** (pay-per-clip Seedance 2.0; Higgsfield credits as fallback) —
-and the page just scrubs pre-rendered video by scroll position. This is the same technique behind Apple's scroll-through product
-pages — the camera genuinely moves, scroll only drives time.
+cuts. The visuals are AI-generated — stills via Higgsfield, fal or Codex; the video
+chain is **Seedance 2.0 on whichever biller the user picks** (Monid pay-per-clip by
+default, fal.ai, or Higgsfield credits — Step 1.7) — and the page just scrubs
+pre-rendered video by scroll position. This is the same technique behind Apple's
+scroll-through product pages — the camera genuinely moves, scroll only drives time.
 
 **What you generate:** N scene stills → N "dive-in" camera clips → N-1 "connector" clips
 that join consecutive scenes seamlessly → a portable scrub engine that plays the whole
@@ -37,41 +38,63 @@ connector. Getting this wrong is the single most common failure and produces a v
 Do not assume a frontend framework. The scrub engine in `references/scrub-engine.js` is
 self-contained vanilla JS (it builds its own DOM + injects its own CSS into a container
 you give it), so it drops into plain HTML, Next.js, Vue, a Python-served page, anything.
-The value of this skill is the Higgsfield pipeline, the prompts, and the seam method —
-not the framework.
+The value of this skill is the render pipeline, the prompts, and the seam method — not
+the framework, and not any one vendor.
 
 ---
 
 ## Step 0 — Bootstrap
 
-1. **Monid CLI — the default video-chain backend.** Check `monid --version`,
-   `monid keys list` (active key) and `monid balance` — the chain is billed per
-   clip in USD (Step 1.7 has the numbers; a 1080p N=6 chain ≈ $27). If the CLI is
-   missing or the balance can't cover the chain, say so and fall back to
-   rendering the chain on Higgsfield credits instead — same model, same
-   pipeline, different biller (Step 4 → Monid backend).
-2. **Higgsfield CLI — still required even on the Monid path**: it renders the
-   scene stills (`gpt_image_2`) and is the home of the `kling3_0` NSFW fallback
-   and the fallback chain. If `higgsfield` is not on `$PATH`, install per the
-   `higgsfield-generate` skill. If `higgsfield workspace list` fails auth, ask the user
-   to run `higgsfield auth login` (interactive OAuth — you cannot run it) and, if needed,
-   `higgsfield workspace set <id>`. Confirm credits cover the stills (~N image
-   gens) — plus `(2N-1)` video gens if the chain falls back here.
-3. **ffmpeg / ffprobe** on `$PATH` (frame extraction + encoding).
-4. **An image tool** for background knockout if you want floating scenes: PIL
+**Pick a backend before anything else.** The same Seedance 2.0 renders the chain on
+three billers (Step 1.7 table). Detect what's available, then let the user choose.
+**At least one of 1–3 must be usable.** Stills and video may come from different
+backends (stills are just PNGs handed to a start-image), but the whole **video chain
+must stay on one backend** — mixing render characters mid-chain pops at the seam
+(Step 4).
+
+1. **Monid CLI — the default video-chain backend** (cheapest). Check
+   `monid --version`, `monid keys list` (active key) and `monid balance` — the
+   chain is billed per clip in USD (a 1080p N=6 chain ≈ $27). If the CLI is
+   missing or the balance can't cover the chain, say so and offer fal or
+   Higgsfield instead — same model, same pipeline, different biller.
+2. **fal — no CLI to install.** If `FAL_KEY` is set (or the user has a key), fal
+   can render the **whole build**: `bytedance/seedance-2.0/image-to-video` for
+   the chain and `fal-ai/gpt-image-2` for the stills, both over plain `curl`.
+   Confirm with a cheap read: `curl -s -H "Authorization: Key $FAL_KEY"
+   https://queue.fal.run/…` returns 401 on a bad key. ~2× Monid's price, but the
+   frame handoff is lossless (base64 data URIs, no re-upload dance) and one key
+   covers stills + video. Wiring in pipeline.md → fal backend.
+3. **Higgsfield CLI — required for `kling3_0`, and the usual home of the stills.**
+   If `higgsfield` is not on `$PATH`, install per the `higgsfield-generate` skill.
+   If auth fails, ask the user to run `higgsfield auth login` (interactive OAuth —
+   you cannot run it) and, if needed, `higgsfield workspace set <id>`. Check the
+   plan and balance with **`higgsfield account status`** and price jobs with
+   **`higgsfield generate cost <model> …`** (Step 1.7) — neither creates a job.
+   Needed on this path: ~N image gens, plus `(2N-1)` video gens if the chain
+   renders here.
+4. **ffmpeg / ffprobe** on `$PATH` (frame extraction + encoding).
+5. **An image tool** for background knockout if you want floating scenes: PIL
    (`python3 -c "import PIL"`), or `cwebp`/`sips`. Optional — see Step 3.
-5. **(Optional) Codex CLI** — if `codex` is on `$PATH` (≥ 0.125) and
+   PIL is also what composites the 9:16 portrait canvases (pipeline.md §6b), so
+   it stops being optional if the user opts into mobile.
+6. **(Optional) Codex CLI** — if `codex` is on `$PATH` (≥ 0.125) and
    `codex login status` reports a ChatGPT login, the scene stills can be generated
    through Codex's built-in `image_gen` (the same gpt-image-2 model) billed to the
    user's ChatGPT subscription instead of Higgsfield credits — offer it at
    Step 1.7, command in Step 2. Absence just removes the option.
-6. Caveats: macOS ships **bash 3.2** (no `declare -A`); don't use associative arrays in
-   scripts. Higgsfield generations take **3–8 min each** — always run them detached
-   (background) and poll, never a foreground blocking call. Reference-by-job-UUID is
-   rejected by media flags — pass **local file paths** to `--image/--start-image/--end-image`.
-   Video models differ in accepted params (e.g. Kling has no `--resolution`) and in whether
-   they support start/end-image conditioning at all — before batching, confirm the chosen
-   model's schema with `higgsfield model get <job_type>` and see the Step 4 model table.
+7. **Platform.** Everything in pipeline.md is POSIX shell (bash + `ffmpeg`, `jq`,
+   `curl`). On Windows, run it under WSL or Git Bash — not PowerShell. macOS ships
+   **bash 3.2** (no `declare -A`), so no associative arrays; and prefer portable
+   coreutils over BSD-only flags (`wc -c < f` rather than `stat -f%z`, which is
+   macOS-only and silently produces an empty size on Linux).
+8. Caveats: video generations take **3–8 min each** — always run them detached
+   (background) and poll, never a foreground blocking call. Media flags accept a
+   UUID (upload id or job id) *or* a local file path (paths are auto-uploaded);
+   this pipeline passes local paths because it already has the PNGs on disk.
+   Video models differ in accepted params (e.g. Kling has no `--resolution`,
+   `seedance_2_0_mini` has no `--mode`) and in whether they support start/end-image
+   conditioning at all — before batching, confirm the chosen model's schema with
+   `higgsfield model get <job_type>` (or fal's model page) and see the Step 4 table.
 
 ---
 
@@ -94,6 +117,9 @@ default. Cover:
 2. **Brand kit** — offer three paths, pick one:
    - Import from a URL: `higgsfield marketing-studio brand-kits fetch --url <site> --wait`
      (pulls name, colours, tone). Then read it back with `brand-kits list --json`.
+     **Higgsfield-only** — on a Monid- or fal-only build the CLI isn't there, so
+     don't offer this option; read the site yourself (fetch it and pull the palette
+     out of its CSS) or use one of the two paths below.
    - The user hands you palette + name + tone directly.
    - You propose a palette + name and let them approve.
    Capture **4–6 named hex values**, a display name, and a tone word or two.
@@ -130,19 +156,21 @@ default. Cover:
    two-option choice (`AskUserQuestion` in Claude Code; a plain question elsewhere):
    *"Want a mobile-optimized version too? The mobile version is a second camera chain
    rendered natively in **9:16 portrait** — composed for phones, not a crop of the
-   landscape film — which roughly doubles the Higgsfield credit spend (state the
-   estimated number)."*
-   Options: "Desktop only" / "Desktop + mobile (native 9:16 — ~2× credits)". The
-   credit cost must be stated to the user, not just implied.
+   landscape film — which roughly **doubles the render spend** (state the actual
+   number for their backend and N, not '2×')."*
+   Options: "Desktop only" / "Desktop + mobile (native 9:16, ~2× spend)". Quote the
+   real figure: an N=6 1080p build goes ≈ $27 → ≈ $54 on Monid, ≈ $50 → ≈ $99 on
+   fal, or roughly double the credits on Higgsfield. The cost must be **stated**,
+   not implied.
    What the answer gates:
    - **Yes** → render the parallel 9:16 portrait chain and ship it as the mobile variants
      (Step 6 / pipeline.md §6b): portrait start canvases → 9:16 dives + connectors
      frame-locked against their own renders → 720-wide `-m.mp4` encodes → `stillMobile`
      portrait posters. Wire `clipMobile`/`connectorsMobile`/`stillMobile` (Step 7); run
      the full mobile QA (Step 8). Budget ~2N-1 extra video gens + NSFW re-rolls.
-     **Never ship the centre-crop as the mobile version by default** — if credits can't
-     cover the portrait chain, say so and offer the crop encodes (pipeline.md §6) as an
-     explicitly-labelled stopgap the user must approve.
+     **Never ship the centre-crop as the mobile version by default** — if the budget
+     can't cover the portrait chain, say so and offer the crop encodes (pipeline.md §6)
+     as an explicitly-labelled stopgap the user must approve.
    - **No** → skip the mobile encodes and wiring entirely. The engine's phone hardening
      (seek-coalescing, iOS priming, safe-area CSS) is always on regardless — that's not
      a "mobile version," it's just the page not breaking when a phone visits — so a
@@ -152,48 +180,93 @@ default. Cover:
    render tiers (`AskUserQuestion`), then compute and state the estimated total for
    the user's N scenes — `N stills + (2N−1) videos [videos ×2 if mobile] + ~15%
    re-roll headroom` — and get a go before generating.
-   - **Video tier** (roster only — every option frame-locks seams, Step 4):
+   - **Video tier** — every option frame-locks seams (Step 4). How the tier is
+     expressed depends on the backend:
 
-     | Tier | Model | Rough cost |
+     | Tier | On Monid / fal | On Higgsfield credits |
      |---|---|---|
-     | Draft / previz | `seedance_2_0_mini` (720p) | ~¼ of Standard |
-     | Standard (default) | `seedance_2_0` (1080p) | baseline |
-     | Alternate | `kling3_0` (720p native) | ≈ Standard; different look + content filter |
+     | Draft / previz | same endpoint at **`480p`** (N=6 ≈ $5 Monid / $10 fal) | `seedance_2_0_mini` (720p, no `--mode`) |
+     | Standard | `720p` (N=6 ≈ $11 / $22) | `seedance_2_0` |
+     | Final (default) | `1080p` (N=6 ≈ $27 / $50) | `seedance_2_0` @1080p |
+     | Alternate | — | `kling3_0` (720p native; different look + content filter) |
 
      Draft doubles as the previz path: run the whole chain cheap, approve the
-     journey, re-render final legs on Standard (pipeline.md Notes) — suggest it
-     unprompted when the balance reads tight.
-   - **Backend — Monid is the DEFAULT biller for the chain** (Step 0.1; wiring
-     in pipeline.md → Monid backend). Same Seedance 2.0, per-clip USD instead of
-     credits. Token-priced `width × height × 24 × seconds / 1024` at $7/1M
-     (480p/720p) or $7.7/1M (1080p) — measured: 1080p 8s dive ≈ $2.99, 5s
-     connector ≈ $1.87; 720p ≈ $1.21 / $0.76; 480p ≈ $0.28 / $0.35. An N=6
-     desktop chain ≈ $27 at 1080p / ~$11 at 720p vs Higgsfield Plus-monthly ≈
-     $32 / $16 — ~15% cheaper per clip, parity with Plus-annual; structurally
-     better for one-off builds (pay-per-use, no monthly expiry). On Monid the
-     Draft/previz tier is simply the **same endpoint at 480p** — no model swap,
-     so previz→final stays one-model by construction. State `monid balance`
-     against the estimate; **fall back to Higgsfield credits** (per-model tiers
-     above) when the user prefers their subscription, the balance is short, or
-     the model must be `kling3_0` (Higgsfield-only). It's the same underlying
-     model (`seedance_2_0` ≙ Monid's `seedance-2.0`), so finishing a stranded
-     chain on the other biller is a reasonable rescue — but the serving stacks
-     differ and cross-provider seam character is **untested**: eyeball the first
-     rescued seam before rendering the rest, same as any model swap.
-   - **Stills source** (only offer if the Codex CLI is present, Step 0.5):
-     Higgsfield `gpt_image_2` (spends credits) vs **Codex `image_gen`** — the same
-     gpt-image-2 model billed to the ChatGPT subscription (zero credits; counts
-     toward Codex usage limits; 1536×1024 output — exactly 3:2, slightly under
-     Higgsfield's 2k). Stills are plain PNGs handed to `--start-image`, so the
-     video chain is indifferent to their source. Command in Step 2. **One source
-     for all N stills of a build** — the two render with slightly different
-     character (verified: Codex runs warmer/lighter), and mixing sources across
-     scenes reads as style drift, same reason the video chain uses one model.
-   - **Calibrate costs, don't guess.** The CLI exposes no pricing and plans differ.
-     Run ONE still and ONE video first, diff `higgsfield workspace list` before/
-     after, extrapolate to the full run, and warn the user whenever the estimate
-     exceeds ~70% of the balance. (Observed on a plus plan, 2026-07: Standard
-     video ≈ 40–55 credits, still ≈ 15.) A real `not_enough_credits` mid-run is
+     journey, then re-render on the final tier — suggest it unprompted when the
+     balance reads tight. On the pay-per-use backends previz→final is a resolution
+     change on **one model**, so the previz translates exactly; on Higgsfield it's a
+     model swap (mini→full), which keeps frame-locking but shifts render character
+     slightly.
+   - **Backend — three ways to bill the SAME model.** `seedance_2_0` (Higgsfield)
+     ≙ `seedance-2.0` (Monid) ≙ `bytedance/seedance-2.0/image-to-video` (fal) are
+     one model behind three billers. Pick by wallet and ergonomics, not by
+     capability — all three frame-lock (Step 4). Both pay-per-use backends share
+     the **same token formula**, `width × height × 24 × seconds / 1024`:
+
+     | Backend | Rate | 1080p dive/conn | 720p dive/conn | 480p dive/conn | N=6 @1080p |
+     |---|---|---|---|---|---|
+     | **Monid** (default) | $7/1M, $7.7/1M @1080p | $2.99 / $1.87 | $1.21 / $0.76 | $0.54 / $0.34 | **≈ $27** |
+     | **fal** | $14/1M (= $0.014/1k) | $5.44 / $3.40 | $2.42 / $1.51 | $1.08 / $0.67 | **≈ $50** |
+     | **Higgsfield** | subscription credits | Plus-monthly ≈ $32 / build | — | — | ≈ $32 |
+
+     (dive = 8s, connector = 5s. fal's published per-second rates — $0.3024 @720p,
+     $0.682 @1080p — reproduce exactly from that formula, so you can quote any
+     duration/resolution without looking it up.)
+
+     **Monid is the default**: same model, roughly **half fal's price**, and it
+     reports `cost.value` per run. **fal is the better API** — no CLI to install
+     (just `FAL_KEY` + `curl`), frames go in as base64 data URIs so the seam
+     handoff stays **lossless** (Monid's `sfs` path JPEG-compresses them), and
+     it hosts `openai/gpt-image-2` too, so one key covers stills *and* video.
+     Choose fal when the user has no Monid balance, wants one vendor, or is
+     already on fal; choose Higgsfield when they'd rather burn an existing
+     subscription or need `kling3_0` (Higgsfield-only). On the pay-per-use
+     backends the Draft/previz tier is just the **same endpoint at 480p** — no
+     model swap, so previz→final stays one-model by construction. (fal also has
+     `bytedance/seedance-2.0/fast/image-to-video`, ~20% cheaper, 720p max, same
+     `end_image_url` support — a real draft tier if you want one.)
+
+     State the balance against the estimate before rendering (`monid balance`,
+     `higgsfield account status`, or the fal dashboard). Because all three serve
+     the same model, finishing a stranded chain on another biller is a reasonable
+     rescue — but the serving stacks differ and cross-provider seam character is
+     **untested**: eyeball the first rescued seam before rendering the rest, same
+     as any model swap.
+   - **Stills source** — the same gpt-image-2 model is reachable three ways, so
+     offer whichever the user is already paying for. All produce plain PNGs handed
+     to a start-image, so the video chain is indifferent:
+     · **Higgsfield `gpt_image_2`** — credits; `--aspect_ratio 3:2 --resolution 2k`.
+     · **fal `fal-ai/gpt-image-2`** — per image, no CLI. `image_size` takes a
+       `{width,height}` object (multiples of 16), so ask for `{"width":2400,"height":1600}`
+       — exactly 3:2 at 2K-class. `quality: high` ≈ $0.15–0.22/image, so N=6 stills
+       ≈ $1. Same key as the video chain if you're already on fal.
+     · **Codex `image_gen`** (only if the Codex CLI is present, Step 0.6) — billed
+       to the ChatGPT subscription (zero credits; counts toward Codex usage limits;
+       1536×1024 output — exactly 3:2, slightly under the others). Command in Step 2.
+
+     **One source for all N stills of a build.** They render with slightly
+     different character (verified: Codex runs warmer/lighter than Higgsfield), and
+     mixing sources across scenes reads as style drift — same reason the video
+     chain uses one model.
+   - **Price it with the CLI — never with a paid calibration render.** As of
+     `higgsfield` v1.1.23 the CLI prices a job *without creating one*:
+
+     ```bash
+     higgsfield generate cost seedance_2_0 --prompt "$(cat dive_farm.txt)" \
+       --start-image still_farm.png --mode std --resolution 1080p --duration 8
+     higgsfield generate cost gpt_image_2 --prompt "…" --aspect_ratio 3:2 --resolution 2k --quality high
+     higgsfield account status     # email, plan, available credits
+     ```
+
+     `generate cost` takes the same params and media flags as `generate create`, so
+     price the *actual* dive and the *actual* connector, multiply out (`N` + `2N−1`,
+     ×2 if mobile, +15% re-roll headroom), and read the balance off
+     `account status` — not off `workspace list`, which lists workspaces. Warn
+     whenever the estimate exceeds ~70% of the balance. (Older versions of this
+     skill said to spend one still and one video and diff the balance; that is
+     obsolete and it charges the user to learn a free number. Only fall back to it
+     if `generate cost` is missing on an older CLI.) On Monid and fal, cost is
+     arithmetic instead — the token formula below is exact, and Monid additionally
+     reports `cost.value` per run. A real `not_enough_credits` mid-run is
      recoverable (finished clips survive; resume after top-up) but ugly — the
      whole point of this step is that the user decides *before* the spend.
 
@@ -225,7 +298,7 @@ Subject: <what is in THIS diorama>.
 
 - Run all N concurrently, detached. Command per scene:
   `higgsfield generate create gpt_image_2 --prompt "$(cat scene_i.txt)" --aspect_ratio 3:2 --resolution 2k --quality high --wait --wait-timeout 15m --json > scene_i.json 2>scene_i.err`
-- Result URL is `.[]0.result_url` in the `--wait --json` output. `curl` it down.
+- Result URL is `.[0].result_url` in the `--wait --json` output. `curl` it down.
 - **Codex stills variant** (if chosen at Step 1.7 — subscription-billed, zero
   credits): same prompt files, same byte-identical preamble, generated by Codex's
   built-in `image_gen`:
@@ -287,9 +360,18 @@ against the CLI:
 |---|---|---|
 | `seedance_2_0` (default) | ✓ / ✓ | Full chain (legs + connectors). `--mode std --resolution 1080p`. Its NSFW filter is the touchy one (see Gotchas). |
 | `kling3_0` | ✓ / ✓ | Full chain — tested: `--mode std --sound off --duration 5` with start+end images accepted, seams frame-lock cleanly. **No `--resolution` param** (don't pass one; `--mode std` returns **720p native** — encode what ffprobe reports, never upscale). Sound defaults **on** → `--sound off`. `--duration` default 5, try 10 for legs. Different content filter than Seedance — the sanctioned NSFW fallback. |
-| `seedance_2_0_mini` | ✓ / ✓ | Cheap draft tier that keeps frame-locking (720p). The previz tier: run the whole chain here first, then re-render final legs on the full model — still seamless, so it translates directly. |
+| `seedance_2_0_mini` | ✓ / ✓ | Cheap draft tier that keeps frame-locking. **No `--mode` param** (the catalog lists mode as not applicable — passing `--mode std` is an invalid flag), and `--resolution` is `480p`/`720p` only. The previz tier: run the whole chain here first, then re-render final legs on the full model — still seamless, so it translates directly. |
 
-Those three are the roster — all do both architectures. (`kling3_0_turbo` also frame-locks
+Those three are the roster — all do both architectures. On the pay-per-use backends the
+same model appears as Monid's `seedance-2.0` and fal's
+`bytedance/seedance-2.0/image-to-video`; `kling3_0` and `seedance_2_0_mini` are
+Higgsfield-only. **Re-check the schema before each build** (`higgsfield model get
+<job_type>`, or fal's model page) — this table has drifted before: `seedance_2_0_mini`
+lost `--mode`, and the catalog now lists `minimax_hailuo` *with* `end-image` support
+(this skill's 2026-07 probe found it rejected — re-probe before trusting either claim).
+Note also that **Seedance 2.5 has no start/end-image roles at all**, so despite the
+higher version number it cannot hold a seam and is not a substitute for 2.0.
+(`kling3_0_turbo` also frame-locks
 via `--start-image`, but has no `--end-image`, so it's architecture-A-only and can't make
 connectors; it also takes a different flag set — no `--mode`, has `--resolution` — so it
 doesn't drop into the pipeline as-is. It's not in the default roster; only reach for it, and
@@ -312,12 +394,12 @@ Rules:
   but the render-character shift reads as a subtle pop. The one sanctioned exception is
   the NSFW fallback for a single stubborn clip (Gotchas) — a slight character shift on
   one 5s connector beats a missing connector.
-- Default to `seedance_2_0`, rendered through **Monid by default** (per-clip USD —
-  next section) with Higgsfield credits as the fallback biller (Step 0.1/1.6); honor
-  a user's stated preference **only if the model qualifies** (frame-locking). If it
-  doesn't, say so and use a supported model — never ship a non-seamless build to
-  satisfy a model request. `kling3_0` and `seedance_2_0_mini` exist only on the
-  Higgsfield side.
+- Default to `seedance_2_0` on whichever backend the user picked at Step 1.7 — Monid
+  (default), fal, or Higgsfield credits. Honor a user's stated *model* preference
+  **only if the model qualifies** (frame-locking). If it doesn't, say so and use a
+  supported model — never ship a non-seamless build to satisfy a model request.
+  `kling3_0` and `seedance_2_0_mini` exist only on the Higgsfield side; the pay-per-use
+  backends serve `seedance_2_0` only, where the draft tier is a resolution, not a model.
 - The pipeline scripts take the model as `$VMODEL` with per-model flags already cased
   out (`references/pipeline.md`).
 
@@ -366,6 +448,54 @@ still — the end must land on that composition (Seedance-style near-miss is fin
 the crossfade covers it). Pass → pay-per-clip tier (arch A if start-only; full
 roster if start+end).
 
+### fal backend — same model, no CLI, lossless seams (verified 2026-09-01)
+
+fal serves the roster's `seedance_2_0` as **`bytedance/seedance-2.0/image-to-video`**,
+and it is the easiest backend to wire because there is nothing to install — a
+`FAL_KEY` and `curl` are the whole dependency. It supports **both** architectures:
+`image_url` is the start frame, optional `end_image_url` is the end frame, so legs
+*and* connectors work (wiring in pipeline.md → "fal backend").
+
+Input schema (confirmed against fal's published API reference):
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `prompt` | string | — | required |
+| `image_url` | string | — | required — **the start frame** |
+| `end_image_url` | string | — | optional — **the end frame** (connectors) |
+| `resolution` | enum | `720p` | `480p, 720p, 1080p, 4k` |
+| `duration` | enum | `auto` | `auto, 4…15` (integers) |
+| `aspect_ratio` | enum | `auto` | `auto, 21:9, 16:9, 4:3, 1:1, 3:4, 9:16` |
+| `generate_audio` | bool | **`true`** | pass `false` |
+| `bitrate_mode` | enum | `standard` | `standard, high` |
+
+Output is `{"video":{"url":…}}`. Four rules, three of which are traps:
+
+1. **Images may be base64 `data:` URIs** — unlike Monid, which rejects them. So
+   the boundary frame goes in **as the exact PNG ffmpeg extracted**, with no
+   re-upload, no rescale and no JPEG round-trip. This is the most faithful seam
+   handoff of any backend; prefer it when seam quality is the priority. (30 MB
+   cap per image; a 1080p PNG frame is ~2–4 MB, ~5 MB base64 — comfortable.)
+2. **Pass `aspect_ratio` explicitly.** The default is `auto`, which follows the
+   input image — hand it a 3:2 still and you get a 3:2-ish video, not 16:9.
+   Exactly the Monid `ratio` trap under a different name. `16:9` desktop,
+   `9:16` for the mobile chain.
+3. **Pass `generate_audio: false`.** Default is `true` (see Gotchas). fal charges
+   the same either way, so this costs you render time rather than money — but you
+   mute it regardless.
+4. **The queue subpath rule.** Submit to the full path but poll the *parent*:
+   POST `https://queue.fal.run/bytedance/seedance-2.0/image-to-video`, then GET
+   `https://queue.fal.run/bytedance/seedance-2.0/requests/<id>/status` and
+   `…/requests/<id>` — **the `/image-to-video` subpath is dropped** when fetching
+   status or result. Auth header is `Authorization: Key $FAL_KEY` (the model pages
+   show `Bearer`; the queue docs use `Key` — `Key` is the one that works across
+   both). Getting this wrong 404s after a successful submit, which reads like a
+   failed render when the clip is in fact generating fine.
+
+Draft tier on fal: `bytedance/seedance-2.0/fast/image-to-video` — same schema
+including `end_image_url`, capped at 720p, ~20% cheaper. Or just drop the standard
+endpoint to `480p`, which keeps previz→final on one model (preferred, same as Monid).
+
 ### A) Continuous forward take — RECOMMENDED for grounded / realistic / walkthrough
 One camera that only ever glides **forward**, first scene through last, as a single take.
 Generate the legs **sequentially**: leg 0 from scene-0's still (glide forward into it);
@@ -375,7 +505,10 @@ ffmpeg), prompt *"continue gliding smoothly FORWARD into [scene i], never pullin
 below), and **no `--end-image`** — an end-image of a wide establishing shot forces the
 camera to pull back, which is the #1 cause of stutter. Extract each leg's last frame to feed the
 next. Result: every seam is frame-identical **and** the camera never reverses. There are
-**no connectors** (skip Step 5) — the legs ARE the journey. Wire each leg as a section
+**no connectors** (skip Step 5) — the legs ARE the journey. The batch script for this
+architecture is **pipeline.md §2b** (sequential, with the per-leg re-roll loop and the
+frame-handoff extraction); §2's parallel loop is architecture B and will silently give
+you the wrong film if you reuse it here. Wire each leg as a section
 clip with `connectors: []` and a small `crossfade` (~0.08). Even without an `--end-image`
 the legs still arrive at distinct rooms (the prompt steers the content). Cost: strictly
 **sequential** (can't parallelize) and slower; interiors trip the NSFW filter, so build in
@@ -457,8 +590,10 @@ structure opens. Model: the chain model you picked above (default **`seedance_2_
   No text." (Template in `references/prompts.md`.)
 - Params (seedance): `--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8`.
   For Kling: drop `--resolution` (no such param), add `--sound off`, `--duration 10`.
-  Do **not** pass `--generate-audio` (it errors on seedance; audio is wasted anyway —
-  you'll mute).
+  Pass **`--generate-audio false`** — the catalog default is `true`, so omitting the
+  flag renders a soundtrack you are about to throw away (`-an` on encode, muted in
+  HTML). Same trap as Kling's `sound: on`; on fal it's `generate_audio: false` in the
+  JSON body.
 - Run concurrently, detached, then download each `.result_url`. Re-roll individual
   failures. Keep the raw 1080p sources — you need their frames next.
 
@@ -566,7 +701,7 @@ Copy `references/scrub-engine.js` (and, if you want a fully standalone page, the
 framework. It's config-driven and self-contained:
 
 ```js
-mountScrollWorld(document.getElementById('world'), {
+const world = mountScrollWorld(document.getElementById('world'), {
   brand: { name: 'Pearl & Co.' },
   diveScroll: 1.3, connScroll: 0.9,          // viewport-heights of scroll per clip
   sections: [
@@ -584,10 +719,29 @@ mountScrollWorld(document.getElementById('world'), {
 });
 ```
 
+**It returns a handle: `{ destroy, refresh }`.** In any framework, call
+`world.destroy()` from the cleanup path (React `useEffect` return, Vue
+`onUnmounted`, Svelte `onDestroy`) — it removes the listeners, cancels the rAF
+loop, revokes every blob URL and empties the container. Skipping it is the single
+most likely way to break this engine inside an SPA: React StrictMode double-invokes
+effects in dev, so without cleanup you get two engines stacked in one container,
+two rAF loops fighting over `currentTime`, and every decoded clip pinned in memory.
+
+```jsx
+useEffect(() => {
+  const world = mountScrollWorld(ref.current, config);
+  return () => world.destroy();
+}, []);
+```
+
 The engine handles: the ordered dive/connector chain, scroll→currentTime with rAF
 smoothing, blob loading, lazy prefetch of nearby clips, frame-matched crossfades, pinned
 per-section copy (first section greets on landing, last holds its CTA), a route rail,
-`prefers-reduced-motion`, and mobile. **Pacing per section:** `scroll` overrides
+`prefers-reduced-motion`, and mobile. The first section's `title` renders as the page's
+`h1` and the rest as `h2`; CTA links drop out of the tab order while their copy is faded
+out. **The engine renders all copy client-side**, so a standalone page has no
+server-rendered text — mirror the headlines into a `<noscript>` block (the template does)
+or server-render them if SEO matters for this page. **Pacing per section:** `scroll` overrides
 `diveScroll` for that scene (more scroll = longer dwell) and `linger` (0–1, keep ≤ 0.6)
 remaps time so the camera settles mid-scene — exactly while the copy peaks — then speeds
 up toward the seam; seam frames are untouched (f(0)=0, f(1)=1). Give the hero and finale
@@ -644,6 +798,23 @@ is the thing most likely to be wrong:
     crops a 16:9 clip to its centre — confirm the focal subject still reads, and remind
     the user this is the stopgap, not the mobile version.
 - Check reduced-motion (should fall back to the stills, no video, no particles).
+- **Check the failure paths, not just the happy one** — they're where this engine
+  used to misbehave:
+  - Point one section's `clip` at a path that doesn't exist and scroll past it. The
+    still poster must stay up and the network tab must show **a handful of requests,
+    not a stream** (the retry cap). A page that re-fetches a missing 8 MB clip on
+    every scroll frame is the old behaviour.
+  - In an SPA, navigate away and back. Exactly one `.sw-stage` should exist in the
+    DOM afterwards — two means `destroy()` isn't wired.
+  - Tab through the page from the top. Focus must never land on a CTA belonging to
+    a scene that isn't on screen.
+  - If the page uses Tailwind v3 (or any unlayered reset), confirm the scenes still
+    fill the viewport — preflight's `img,video{height:auto}` is unlayered and used to
+    beat the engine's layered `height:100%`. The engine now keeps its geometry rules
+    outside the layer; this check catches a regression if you port the CSS.
+- View the page with JS disabled. If it's blank, the `<noscript>` mirror is missing —
+  decide with the user whether this page needs to be crawlable at all (a linked-to
+  landing page does).
 
 ---
 
@@ -702,7 +873,13 @@ is the thing most likely to be wrong:
   this on a mobile build, either the crop fallback shipped (call it out to the user) or the
   9:16 encodes aren't actually being served (check `videoWidth < videoHeight`). Keeping each
   scene's focal subject centred (prompts.md) still matters for the desktop film itself.
-- **`--generate-audio` errors on seedance** → omit it; mute in HTML and `-an` on encode.
+- **Paying for audio you throw away** → `generate_audio` defaults to **`true`** on
+  seedance (Higgsfield catalog, Monid, and fal alike), so *omitting* the flag is not
+  "no audio", it's "audio on". Pass `--generate-audio false` (Higgsfield) or
+  `generate_audio:false` (Monid/fal JSON body) on every clip. On fal the price is the
+  same either way, so there it costs you generation time rather than money; on
+  credit-billed backends assume it costs both. Mute in HTML and `-an` on encode
+  regardless.
 - **Kling rejects your flags** → `kling3_0` has **no `--resolution` param** (don't pass
   one; encode at whatever native res ffprobe reports) and **sound defaults on** — pass
   `--sound off`. Duration default is 5; legs/dives want 10.
@@ -736,6 +913,23 @@ is the thing most likely to be wrong:
   late July 2026, then gained first/last-frame support). `monid inspect` before each
   build; re-run the Step 4 qualification probes when the Input schema differs from
   what pipeline.md documents.
+- **fal submit works, then every poll 404s** → you kept the subpath when polling.
+  Submit to `queue.fal.run/bytedance/seedance-2.0/image-to-video`, but poll
+  `queue.fal.run/bytedance/seedance-2.0/requests/<id>/status` and `…/requests/<id>` —
+  status and result hang off the **parent** model path. The clip is rendering fine;
+  only your poll URL is wrong.
+- **fal returns 401 with a key you know is good** → header format. It's
+  `Authorization: Key $FAL_KEY`, not `Bearer` (some model pages show `Bearer`;
+  `Key` works on both the sync and queue hosts).
+- **fal clip comes back 3:2 / the wrong shape** → `aspect_ratio` defaults to `auto`,
+  which follows the input image. A 3:2 still in ⇒ a 3:2 clip out. Pass `16:9`
+  (or `9:16` for the mobile chain) explicitly on every chained clip — the same trap
+  as Monid's `ratio`.
+- **fal request body is enormous / times out on upload** → you inlined a 1080p PNG
+  as base64 (~5 MB) for both `image_url` and `end_image_url` on every connector.
+  That's within the 30 MB limit and it's what keeps the seam lossless, so it's
+  usually the right trade — but if the uploads dominate the run, switch the
+  *connector* frames to fal storage URLs and keep base64 for the legs.
 - **Codex stills hang at "Reading additional input from stdin..."** → parallel
   `codex exec` calls launched from one script share the parent's stdin; one wins it,
   the rest block forever (observed: 1 of 3 completed, 2 hung, the second batch never

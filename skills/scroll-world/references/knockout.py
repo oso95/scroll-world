@@ -16,6 +16,18 @@ Then encode to webp with alpha, e.g.:
     cwebp -q 84 -alpha_q 95 -resize 1800 0 scene1.rgba.png -o scene1.webp
 
 No numpy/ImageMagick needed — pure PIL. Pairs with SKILL.md Step 3.
+
+COST: the flood fill and the alpha pass are both O(pixels) in interpreted Python,
+so a 2k still (~3-4 Mpx) takes on the order of a minute, and a 6-scene set several.
+That's fine as a one-off, but don't run it inside a polling loop. If it drags:
+knock out a downscaled copy (the alpha contour is Gaussian-blurred anyway, so the
+mask survives being computed at half resolution and scaled back up), or skip the
+step entirely and just set the page background to the scene background — SKILL.md
+Step 3 treats that as an equally valid choice, not a lesser one.
+
+LIMITS: the background colour is the average of the four corners, so a scene whose
+subject touches a corner, or one on a gradient/vignette background rather than a
+flat one, will mis-key. Raise or lower TOL, or skip the knockout for that scene.
 """
 import os
 import sys

@@ -1,7 +1,7 @@
 {
   "name": "scroll-world",
-  "description": "Build an immersive scroll-scrubbed 'fly through the world' landing page for any industry or brand using Higgsfield. As the visitor scrolls, a pre-rendered camera flies from outside each scene into its interior, then flows on to the next scene with no cuts — one continuous connected flight. Interviews the user for the topic, story beats, and brand kit, then generates cohesive scenes + seamless camera clips and wires a portable, framework-agnostic scroll-scrub engine. Use for a '3D world' / 'browse-through-the-industry' hero, a scroll cinematic, or a diorama landing.",
-  "version": "0.8.0",
+  "description": "Build an immersive scroll-scrubbed 'fly through the world' landing page for any industry or brand. As the visitor scrolls, a pre-rendered camera flies from outside each scene into its interior, then flows on to the next scene with no cuts — one continuous connected flight. Interviews the user for the topic, story beats, and brand kit, then generates cohesive scenes + seamless camera clips (Seedance 2.0 on Monid, fal.ai, or Higgsfield — your choice of biller) and wires a portable, framework-agnostic scroll-scrub engine. Use for a '3D world' / 'browse-through-the-industry' hero, a scroll cinematic, or a diorama landing.",
+  "version": "0.9.0",
   "author": {
     "name": "cyw",
     "email": "cyw@cywang.me"
@@ -11,6 +11,7 @@
   "keywords": [
     "higgsfield",
     "monid",
+    "fal",
     "landing-page",
     "scroll",
     "video",

@@ -7,6 +7,16 @@
    rendered page, anything.
 
    USAGE
+     const world = mountScrollWorld(document.getElementById('world'), { … });
+     // …later, in a framework cleanup:
+     world.destroy();     // removes listeners, stops the rAF loop, revokes blob
+                          // URLs, empties the container. ALWAYS call this from a
+                          // React useEffect return / Vue onUnmounted / Svelte
+                          // onDestroy — without it a remount stacks a second
+                          // engine on top of the first (React StrictMode does
+                          // exactly that in dev) and the decoded clips leak.
+     world.refresh();     // re-run layout (e.g. after you change container size)
+
      mountScrollWorld(document.getElementById('world'), {
        brand: { name: 'Pearl & Co.', href: '#top' },
        diveScroll: 1.3,   // viewport-heights of scroll per dive clip
@@ -27,6 +37,10 @@
        ],
        connectors: [clipUrl, …],          // length = sections.length - 1 (nulls allowed)
        connectorsMobile: [clipUrl, …],    // optional lighter connectors for phones (same length)
+       crossfade: 0.12,                   // seam dissolve width in vh (floored at 0.001)
+       maxClipRetries: 2,                 // give up on an unreachable clip after N retries
+                                          // and keep the still poster up, instead of
+                                          // re-fetching it on every scroll frame forever
 
    MOBILE (the clipMobile/connectorsMobile variants are the opt-in mobile version;
    the rest of the phone handling below is always on)
@@ -76,9 +90,21 @@ function mountScrollWorld(container, config) {
   const CONNECTORS_M = config.connectorsMobile || [];
   const DIVE_W = config.diveScroll || 1.3;
   const CONN_W = config.connScroll || 0.9;
-  const CROSSFADE = (config.crossfade != null) ? config.crossfade : 0.12;  // seam dissolve width (vh)
+  // Seam dissolve width (vh). Clamped to a floor: a 0 here would make the
+  // opacity ramp divide by zero and blank every scene (NaN never reaches CSSOM).
+  const CROSSFADE = Math.max((config.crossfade != null) ? config.crossfade : 0.12, 0.001);
+  const MAX_CLIP_RETRIES = (config.maxClipRetries != null) ? config.maxClipRetries : 2;
   const N = SECTIONS.length;
   if (!N) return;
+
+  // ---- teardown bookkeeping (see the returned handle at the end) ----
+  // Every listener, animation frame and object URL is tracked so destroy() can
+  // release them. Without this an SPA remount (React StrictMode double-invokes
+  // effects in dev) leaves a second rAF loop and a duplicate DOM behind.
+  let destroyed = false, rafId = 0;
+  const listeners = [];
+  const objectUrls = [];
+  function on(target, type, fn, opts) { target.addEventListener(type, fn, opts); listeners.push([target, type, fn, opts]); }
 
   injectCSS();
   container.classList.add('sw-root');
@@ -103,6 +129,7 @@ function mountScrollWorld(container, config) {
 
   // ---- DOM ----
   const sky = el('div', 'sw-sky');
+  sky.setAttribute('aria-hidden', 'true');          // pure atmosphere, no content
   if (config.atmosphere !== false) {
     sky.appendChild(el('div', 'sw-sky__grad'));
     sky.appendChild(el('div', 'sw-sky__glow'));
@@ -110,6 +137,7 @@ function mountScrollWorld(container, config) {
   const particles = el('div', 'sw-particles'); sky.appendChild(particles);
 
   const scrollbar = el('div', 'sw-scrollbar');
+  scrollbar.setAttribute('aria-hidden', 'true');
   const scrollbarFill = el('span'); scrollbar.appendChild(scrollbarFill);
 
   const topbar = el('div', 'sw-topbar');
@@ -119,16 +147,19 @@ function mountScrollWorld(container, config) {
     const nm = el('span', 'sw-brand__name'); nm.textContent = config.brand.name || ''; brand.appendChild(nm);
     topbar.appendChild(brand);
   }
-  const nav = el('nav', 'sw-nav'); if (config.nav !== false) topbar.appendChild(nav);
+  const nav = el('nav', 'sw-nav'); nav.setAttribute('aria-label', 'Scenes');
+  if (config.nav !== false) topbar.appendChild(nav);
   if (config.cta && config.cta.label) {
     const c = el('a', 'sw-topcta'); c.href = config.cta.href || '#'; c.textContent = config.cta.label;
     topbar.appendChild(c);
   }
 
   const stage = el('div', 'sw-stage');
+  stage.setAttribute('aria-hidden', 'true');        // the film; the copy layer carries the text
   const copylayer = el('div', 'sw-copylayer');
-  const route = el('div', 'sw-route');
+  const route = el('nav', 'sw-route'); route.setAttribute('aria-label', 'Route');
   const hint = el('div', 'sw-hint');
+  hint.setAttribute('aria-hidden', 'true');
   const hintText = el('span'); hintText.textContent = config.hint || 'scroll'; hint.appendChild(hintText);
   hint.appendChild(el('i'));
   const track = el('div', 'sw-track');
@@ -143,29 +174,35 @@ function mountScrollWorld(container, config) {
     if (poster) img.src = poster;
     scene.appendChild(img); stage.appendChild(scene);
     s.el = scene; s.img = img; s.video = null; s.hasClip = false;
-    s.loading = false; s.ready = false; s.cur = 0; s.target = 0; s.visible = false;
+    s.loading = false; s.ready = false; s.cur = 0; s.target = 0; s.visible = false; s.fails = 0;
   });
 
   // per-section copy / route / nav
   const copies = [], dots = [];
   SECTIONS.forEach((s, i) => {
     const c = el('article', 'sw-copy'); c.style.setProperty('--sw-accent', s.accent || '');
+    if (s.id) c.id = s.id;
+    // The first scene's headline is the page's h1 — this is a landing page, and a
+    // document whose only headings are h2 has no title in the outline.
+    const H = i === 0 ? 'h1' : 'h2';
     c.innerHTML =
-      `<span class="sw-copy__num">${pad(i + 1)} / ${pad(N)}</span>` +
+      `<span class="sw-copy__num" aria-hidden="true">${pad(i + 1)} / ${pad(N)}</span>` +
       (s.eyebrow ? `<span class="sw-copy__eyebrow">${esc(s.eyebrow)}</span>` : '') +
-      (s.title ? `<h2 class="sw-copy__title">${esc(s.title)}</h2>` : '') +
+      (s.title ? `<${H} class="sw-copy__title">${esc(s.title)}</${H}>` : '') +
       (s.body ? `<p class="sw-copy__body">${esc(s.body)}</p>` : '') +
       (s.tags && s.tags.length ? `<ul class="sw-copy__tags">${s.tags.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '') +
       (s.cta ? `<div class="sw-copy__cta">${ctaBtns(s.cta)}</div>` : '');
     copylayer.appendChild(c); copies.push(c);
 
     const dot = el('button', 'sw-route__dot'); dot.style.setProperty('--sw-accent', s.accent || '');
-    dot.innerHTML = `<span class="sw-route__label">${esc(s.label || '')}</span><i></i>`;
-    dot.addEventListener('click', () => jumpTo(i)); route.appendChild(dot); dots.push(dot);
+    dot.type = 'button';
+    dot.setAttribute('aria-label', 'Fly to ' + (s.label || 'section ' + (i + 1)));
+    dot.innerHTML = `<span class="sw-route__label" aria-hidden="true">${esc(s.label || '')}</span><i aria-hidden="true"></i>`;
+    on(dot, 'click', () => jumpTo(i)); route.appendChild(dot); dots.push(dot);
 
     if (config.nav !== false) {
-      const b = el('button', 'sw-nav__item'); b.textContent = s.label || '';
-      b.addEventListener('click', () => jumpTo(i)); nav.appendChild(b);
+      const b = el('button', 'sw-nav__item'); b.type = 'button'; b.textContent = s.label || '';
+      on(b, 'click', () => jumpTo(i)); nav.appendChild(b);
     }
   });
 
@@ -198,17 +235,24 @@ function mountScrollWorld(container, config) {
   function loadClip(s) {
     // Under prefers-reduced-motion we never load the clips at all — the stills stay up
     // and simply cross-dissolve as you scroll. No scrubbed video motion, no decode cost.
-    if (reduce || s.loading || !s.clip) return;
+    if (reduce || s.loading || !s.clip || destroyed) return;
+    // A failed fetch used to reset `loading` with no cap, so read() re-issued it on
+    // every scroll frame forever — one bad asset path meant an endless stream of
+    // multi-MB requests. Retry a couple of times, then leave the still poster up.
+    if (s.fails > MAX_CLIP_RETRIES) return;
     s.loading = true;
     // Serve the lighter mobile encode on phones when one was provided.
     const url = (isMobile() && s.clipM) ? s.clipM : s.clip;
     fetch(url).then(r => r.ok ? r.blob() : Promise.reject(new Error('404')))
       .then(blob => {
+        if (destroyed) return;
         const v = document.createElement('video');
         v.className = 'sw-scene__video';
         v.muted = true; v.playsInline = true; v.preload = 'auto';
         v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
-        v.src = URL.createObjectURL(blob);
+        const objUrl = URL.createObjectURL(blob);
+        objectUrls.push(objUrl);          // released in destroy()
+        v.src = objUrl;
         v.addEventListener('loadedmetadata', () => { s.ready = true; read(); });
         // Reveal the video (hide the still poster) only once a real frame has
         // painted — on iOS a seeked-but-never-played muted video stays blank, so
@@ -216,7 +260,7 @@ function mountScrollWorld(container, config) {
         v.addEventListener('seeked', () => { s.el.classList.add('has-clip'); }, { once: true });
         v.addEventListener('loadeddata', () => { try { v.pause(); } catch (e) {} if (userReady) primeVideo(v); });
         s.el.appendChild(v); s.video = v; s.hasClip = true;
-      }).catch(() => { s.loading = false; });
+      }).catch(() => { s.loading = false; s.fails++; });
   }
 
   function read() {
@@ -233,11 +277,19 @@ function mountScrollWorld(container, config) {
       let outside = 0;
       if (y < s.start) outside = s.start - y; else if (y > s.end) outside = y - s.end;
       const op = smooth(1 - outside / fade);
-      s.el.style.opacity = op; s.visible = op > 0.001;
-      s.el.style.zIndex = (i === ci) ? '120' : String(100 + Math.round(op * 10));
+      s.visible = op > 0.001;
+      // Only touch the DOM when a value actually changed. read() runs on every
+      // scroll frame across all 2N-1 segments, and the overwhelming majority are
+      // fully faded out and unchanged frame to frame — writing them anyway is
+      // pure style-recalc churn on exactly the phones this engine works hardest
+      // to keep smooth.
+      if (s._op !== op) { s._op = op; s.el.style.opacity = op; }
+      const z = (i === ci) ? '120' : String(100 + Math.round(op * 10));
+      if (s._z !== z) { s._z = z; s.el.style.zIndex = z; }
       if (!s.hasClip || !s.ready) {
         const sc = reduce ? 1 : 1.03 + local * 0.14;
-        s.img.style.transform = `translateX(${stageX - 2}vw) scale(${sc.toFixed(3)})`;
+        const tf = `translateX(${stageX - 2}vw) scale(${sc.toFixed(3)})`;
+        if (s._tf !== tf) { s._tf = tf; s.img.style.transform = tf; }
       }
     }
 
@@ -250,9 +302,22 @@ function mountScrollWorld(container, config) {
       else if (i === N - 1) cop = before ? 0 : smooth(pr / 0.4);       // holds CTA at the end
       else cop = (before || after) ? 0 : smooth(1 - Math.abs(pr - 0.5) / 0.5);
       const c = copies[i];
-      c.style.opacity = cop;
-      c.style.transform = reduce ? 'none' : `translateY(${(0.5 - pr) * 4}vh)`;
-      c.style.pointerEvents = cop > 0.5 ? 'auto' : 'none';
+      if (c._op !== cop) { c._op = cop; c.style.opacity = cop; }
+      const ctf = reduce ? 'none' : `translateY(${(0.5 - pr) * 4}vh)`;
+      if (c._tf !== ctf) { c._tf = ctf; c.style.transform = ctf; }
+      const live = cop > 0.5;
+      if (c._pe !== live) { c._pe = live; c.style.pointerEvents = live ? 'auto' : 'none'; }
+      // Copy that has faded out is still in the DOM, so its CTA links stayed in the
+      // tab order — keyboard users landed on invisible buttons. Drop them out of
+      // the tab order while hidden, but keep the text itself in the a11y tree so a
+      // screen reader can still read the page straight through.
+      if (c._live !== live) {
+        c._live = live;
+        const links = c.querySelectorAll('a,button');
+        for (let k = 0; k < links.length; k++) {
+          if (live) links[k].removeAttribute('tabindex'); else links[k].setAttribute('tabindex', '-1');
+        }
+      }
     }
 
     const cur = SEGMENTS[ci];
@@ -271,6 +336,7 @@ function mountScrollWorld(container, config) {
   }
 
   function raf() {
+    if (destroyed) return;
     const eps = isMobile() ? 0.02 : 0.008;   // coarser seek step on phones = fewer decodes
     for (let i = 0; i < NSEG; i++) {
       const s = SEGMENTS[i];
@@ -285,7 +351,7 @@ function mountScrollWorld(container, config) {
       const t = clamp(s.cur, 0, 0.999) * dur;
       if (Math.abs(s.video.currentTime - t) > eps) { try { s.video.currentTime = t; } catch (e) {} }
     }
-    requestAnimationFrame(raf);
+    rafId = requestAnimationFrame(raf);
   }
 
   // iOS needs a user gesture before a muted video will decode/paint reliably. On the
@@ -303,12 +369,12 @@ function mountScrollWorld(container, config) {
     userReady = true;
     SEGMENTS.forEach(s => primeVideo(s.video));
   }
-  window.addEventListener('pointerdown', onFirstGesture, { once: true, passive: true });
-  window.addEventListener('touchstart', onFirstGesture, { once: true, passive: true });
+  on(window, 'pointerdown', onFirstGesture, { once: true, passive: true });
+  on(window, 'touchstart', onFirstGesture, { once: true, passive: true });
 
   // Particles are a per-frame cost we can't afford alongside video scrubbing on a phone.
   seedParticles(particles, reduce || coarse);
-  window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(read); } }, { passive: true });
+  on(window, 'scroll', () => { if (!ticking && !destroyed) { ticking = true; requestAnimationFrame(read); } }, { passive: true });
   // Mobile browsers fire `resize` every time the URL bar slides in/out. Re-running
   // layout() there rebuilds the track height and yanks the scroll position, so on
   // touch we ignore height-only changes and only relayout when the width actually
@@ -318,11 +384,37 @@ function mountScrollWorld(container, config) {
     if (coarse && window.innerWidth === laidOutW) return;
     layout();
   }
-  window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', layout);
-  window.addEventListener('load', layout);
+  on(window, 'resize', onResize);
+  on(window, 'orientationchange', layout);
+  on(window, 'load', layout);
   layout();
-  requestAnimationFrame(raf);
+  rafId = requestAnimationFrame(raf);
+
+  // ---- teardown ----
+  // Call this from a framework cleanup (React useEffect return, Vue onUnmounted,
+  // Svelte onDestroy). Without it the rAF loop, the scroll listeners and every
+  // decoded clip outlive the component — and a remount stacks a second copy of
+  // the whole engine on top of the first.
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true;
+    if (rafId) cancelAnimationFrame(rafId);
+    listeners.forEach(([t, type, fn, opts]) => t.removeEventListener(type, fn, opts));
+    listeners.length = 0;
+    SEGMENTS.forEach(s => {
+      if (s.video) { try { s.video.pause(); } catch (e) {} s.video.removeAttribute('src'); try { s.video.load(); } catch (e) {} }
+      s.video = null; s.hasClip = false;
+    });
+    // Blob URLs pin the whole decoded clip in memory until revoked; an N=6 build
+    // holds ~11 of them.
+    objectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+    objectUrls.length = 0;
+    SECTIONS.forEach(s => { delete s._seg; });
+    container.classList.remove('sw-root');
+    while (container.firstChild) container.removeChild(container.firstChild);
+  }
+
+  return { destroy, refresh: () => { if (!destroyed) layout(); } };
 
   // ---- helpers ----
   function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
@@ -435,11 +527,30 @@ function injectCSS() {
   }
   @media (prefers-reduced-motion:reduce){ .sw-hint i::after{animation:none;} .sw-pt{display:none;} }
   `;
-  // Wrap in a cascade layer so the page's own theme tokens (unlayered
+  // Structural invariants — deliberately NOT layered.
+  //
+  // Everything above lives in `@layer sw` so a page's own theme wins. But
+  // unlayered rules beat layered ones regardless of specificity, which means an
+  // unlayered CSS reset also wins — and Tailwind v3's preflight (unlayered)
+  // ships `img,video{max-width:100%;height:auto}`. That `height:auto` would
+  // override the layered `height:100%` below and collapse every scene to its
+  // intrinsic aspect. These few rules are geometry, not taste, so they go
+  // unlayered where a reset can't reach them. (Tailwind v4 layers its preflight,
+  // so it was only ever broken on v3 — but silently, and only in production.)
+  const structural = `
+  .sw-root .sw-stage{position:fixed;inset:0;z-index:10;pointer-events:none;}
+  .sw-root .sw-scene{position:absolute;inset:0;overflow:hidden;}
+  .sw-root .sw-scene__video,.sw-root .sw-scene__still{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;}
+  .sw-root .sw-copylayer{position:fixed;inset:0;z-index:20;pointer-events:none;}
+  .sw-root .sw-sky{position:fixed;inset:0;z-index:0;pointer-events:none;}
+  .sw-root .sw-track{position:relative;z-index:1;width:100%;pointer-events:none;}
+  `;
+
+  // Wrap the defaults in a cascade layer so the page's own theme tokens (unlayered
   // :root / .sw-root { --sw-bg / --sw-ink / --sw-accent … }) always win over
   // these defaults, regardless of injection order. Enables clean dark themes.
   const style = document.createElement('style'); style.id = 'sw-css';
-  style.textContent = '@layer sw {\n' + css + '\n}';
+  style.textContent = '@layer sw {\n' + css + '\n}\n' + structural;
   document.head.appendChild(style);
 }
 

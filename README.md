@@ -46,31 +46,40 @@ cp -R scroll-world/skills/scroll-world ~/.codex/skills/    # Codex
 
 ## Requirements
 
-- The [Monid CLI](https://monid.ai) with an API key and balance — the **default
-  video-chain backend** (Seedance 2.0, billed per clip in USD; see below).
-- The [Higgsfield CLI](https://higgsfield.ai), authenticated (`higgsfield auth login`),
-  with credits — renders the scene stills, the `kling3_0` fallback, and the whole
-  chain when Monid is absent.
-- `ffmpeg` / `ffprobe` for frame extraction and encoding.
+**At least one video backend** — all three render the *same* Seedance 2.0, so this
+is a billing choice, not a quality one:
+
+| Backend | Needs | N=6 chain @1080p | Why pick it |
+|---|---|---|---|
+| [Monid](https://monid.ai) *(default)* | `monid` CLI + balance | **≈ $27** | Cheapest; per-clip cost reported per run |
+| [fal.ai](https://fal.ai) | just a `FAL_KEY` | ≈ $50 | No CLI; lossless base64 frame handoff; stills + video on one key |
+| [Higgsfield](https://higgsfield.ai) | `higgsfield` CLI, `auth login`, credits | ≈ $32 (Plus) | Spends an existing subscription; only home of `kling3_0` |
+
+- The [Higgsfield CLI](https://higgsfield.ai) is also the usual source of the scene
+  stills (`gpt_image_2`) — though fal serves the same model, and Codex can too.
+- `ffmpeg` / `ffprobe` for frame extraction and encoding, plus `jq` and `curl`.
+- A POSIX shell — the pipeline is bash. On Windows, use WSL or Git Bash.
 - Python 3 with Pillow (for the mobile portrait canvases; also the optional
   transparent-scene knockout).
 - The [Codex CLI](https://github.com/openai/codex) (optional) — if present, the scene
   stills can be generated through Codex's built-in `image_gen` (the same GPT Image
   model), billed to a ChatGPT subscription instead of Higgsfield credits.
-- About the Monid default: verified 2026-07-25 — first/last-frame conditioning
-  frame-locks, so it renders the full seamless chain; frames travel via Monid's
-  free workspace file system. Pay-per-use with no subscription or monthly expiry
-  (a 6-scene 1080p chain ≈ $27). The skill re-checks the endpoint schema each
-  build and keeps qualification probes in the pipeline for when the catalog
-  changes; Higgsfield credits remain the fallback biller.
+- About the backends: Monid's seedance-2.0 was verified 2026-07-25 (first/last-frame
+  conditioning frame-locks, so it renders the full seamless chain; frames travel via
+  Monid's free workspace file system, JPEG-compressed on the way up). fal's
+  `bytedance/seedance-2.0/image-to-video` takes `image_url` + `end_image_url` and
+  accepts base64 data URIs, so its seam handoff is the exact PNG ffmpeg extracted —
+  the most faithful of the three. Both are pay-per-use with no subscription or
+  monthly expiry, and both price off the same token formula. The skill re-checks
+  each endpoint's schema per build and keeps qualification probes in the pipeline
+  for when a catalog moves — which it does, in both directions.
 
 ## What it does
 
 It generates the art with AI: cohesive isometric diorama scenes (GPT Image 2 — via
-Higgsfield, or the Codex CLI on a ChatGPT subscription) and the camera flights
-themselves (Seedance image-to-video via **Monid by default**, pay-per-clip; Seedance
-or Kling on Higgsfield credits as fallback — only models that can frame-lock a
-seam), scrubbed
+Higgsfield, fal, or the Codex CLI on a ChatGPT subscription) and the camera flights
+themselves (Seedance 2.0 image-to-video on **Monid, fal, or Higgsfield** — your
+choice of biller, one model, and only models that can frame-lock a seam), scrubbed
 by scroll position — the same technique behind Apple's scroll-through product pages. The
 camera genuinely moves; scroll only drives time. It's **framework-agnostic**: you get the
 Higgsfield pipeline, the prompt templates, and a portable vanilla-JS scrub engine that
@@ -107,12 +116,11 @@ skills/scroll-world/
 
 ## Notes
 
-- Asset generation costs money (~N image gens on Higgsfield credits + ~2N-1 video
-  gens billed per clip on Monid by default; the mobile chain doubles the video gens)
-  and takes a while — the skill runs generations in the background and polls. Monid
-  pricing is per-token and printed per run; Higgsfield pricing isn't exposed by its
-  CLI, so the skill calibrates against your live balance. Either way the estimated
-  total is stated before spending.
+- Asset generation costs money (~N image gens + ~2N-1 video gens; the mobile chain
+  doubles the video gens) and takes a while — the skill runs generations in the
+  background and polls. Monid and fal are token-priced (`w × h × 24 × s / 1024`, at
+  $7/1M and $14/1M respectively), and Higgsfield prices any job for free up front via
+  `higgsfield generate cost`. Either way the estimated total is stated before spending.
 - The generated `.mp4`/`.webp` assets are produced per project; they're not shipped here.
 
 ## Star History

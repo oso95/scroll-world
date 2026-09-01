@@ -19,9 +19,24 @@
   <div id="top"></div>
   <div id="world"></div>
 
+  <!-- The engine injects every headline from the config below, so with JS off the
+       page is blank and a crawler sees nothing. Mirror the copy here: it is the
+       only server-rendered text on the page. Keep it in sync with `sections`. -->
+  <noscript>
+    <main style="max-width:46rem;margin:0 auto;padding:2rem 1.25rem;font:16px/1.6 system-ui,sans-serif">
+      <h1>The hero line.</h1>
+      <p>One plain-spoken sentence about this stage.</p>
+      <h2>Scene A</h2>
+      <p>One plain-spoken sentence about this stage.</p>
+      <h2>The Product</h2>
+      <p>The payoff sentence.</p>
+      <p><a href="#">Get started</a></p>
+    </main>
+  </noscript>
+
   <script src="scrub-engine.js"></script>
   <script>
-    mountScrollWorld(document.getElementById('world'), {
+    const world = mountScrollWorld(document.getElementById('world'), {
       brand: { name: 'BRAND', href: '#top' },
       cta: { label: 'Order now', href: '#finale' },
       hint: 'scroll to fly in',
@@ -68,6 +83,12 @@
         // 'assets/vid/conn2-m.mp4', …
       ],
     });
+
+    // Standalone pages never unmount, so this is here as documentation: inside a
+    // framework you MUST call world.destroy() on cleanup (React useEffect return,
+    // Vue onUnmounted, Svelte onDestroy). Without it a remount stacks a second
+    // engine — listeners, rAF loop and decoded clips — on top of the first.
+    window.addEventListener('pagehide', () => world.destroy(), { once: true });
   </script>
 </body>
 </html>

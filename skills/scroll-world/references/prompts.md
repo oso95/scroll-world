@@ -22,13 +22,27 @@ Collect and write down:
   (pipeline §6b): portrait renders of every dive/connector +
   `clipMobile`/`connectorsMobile`/`stillMobile` wiring + the full mobile QA. The
   §6 crop encodes are a no-credits stopgap only.
-- `VIDEO_TIER` — default is `seedance_2_0` **via Monid** (pay-per-clip; previz =
-  same endpoint at 480p, final at 1080p). Higgsfield-credit alternates: draft
-  (`seedance_2_0_mini`) | standard (`seedance_2_0`) | alternate (`kling3_0`).
-  Chosen by cost at SKILL Step 1.7, with the estimated total stated before
-  anything renders.
-- `STILLS_SOURCE` — higgsfield (`gpt_image_2`, spends credits) | codex
-  (`image_gen`, subscription-billed; only offer when the Codex CLI is present).
+- `BACKEND` — which biller renders the chain. All three serve the **same**
+  Seedance 2.0, so this is a wallet/ergonomics choice, not a quality one:
+  **monid** (default — cheapest, ~$27 for an N=6 1080p chain, reports `cost.value`
+  per clip) | **fal** (no CLI, just `FAL_KEY` + curl; lossless base64 frame
+  handoff; ~2× Monid) | **higgsfield** (burns an existing subscription; the only
+  home of `kling3_0` and `seedance_2_0_mini`). **One backend for the whole video
+  chain** — mixing render characters mid-chain pops at the seam.
+- `VIDEO_TIER` — resolution, not a model swap, on the pay-per-use backends:
+  previz `480p` → standard `720p` → final `1080p`, same endpoint throughout.
+  Higgsfield-credit alternates are per-model instead: draft (`seedance_2_0_mini`,
+  no `--mode` flag) | standard (`seedance_2_0`) | alternate (`kling3_0`, no
+  `--resolution` flag, `--sound off`). Chosen by cost at SKILL Step 1.7, with the
+  estimated total stated before anything renders.
+- `STILLS_SOURCE` — the same gpt-image-2 three ways: higgsfield (`gpt_image_2`,
+  credits) | fal (`fal-ai/gpt-image-2`, ~$0.15–0.22/image, `image_size:
+  {width:2400,height:1600}` for exact 3:2) | codex (`image_gen`,
+  subscription-billed; only offer when the Codex CLI is present). One source for
+  all N stills.
+- **Audio is off on every backend**: `--generate-audio false` (Higgsfield) /
+  `generate_audio:false` (Monid, fal). The default is `true` everywhere — omitting
+  the flag renders a soundtrack you immediately mute and strip.
 
 ## Style preamble (default: clay diorama)
 
@@ -136,9 +150,12 @@ For scenes with no building to open (a field, a plaza, a road), replace the roof
 with "the camera flies low across [the scene] toward [focal point]."
 
 Params by chain model (SKILL Step 4 table): seedance —
-`--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8`, no audio flag;
-kling3_0 — `--mode std --sound off --aspect_ratio 16:9 --duration 10` (no `--resolution`
-param). Same for architecture-A legs.
+`--mode std --resolution 1080p --aspect_ratio 16:9 --duration 8 --generate-audio false`;
+`seedance_2_0_mini` — same but **no `--mode`** and 720p max; kling3_0 —
+`--mode std --sound off --aspect_ratio 16:9 --duration 10` (no `--resolution` param).
+On fal/Monid it's the JSON body instead: `resolution`, `duration`,
+`aspect_ratio`/`ratio` (never leave it `auto`), `generate_audio:false`.
+Same for architecture-A legs.
 
 ## Connector clip prompt (Step 5)
 
