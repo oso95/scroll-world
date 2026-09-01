@@ -261,7 +261,13 @@ default. Cover:
      price the *actual* dive and the *actual* connector, multiply out (`N` + `2N−1`,
      ×2 if mobile, +15% re-roll headroom), and read the balance off
      `account status` — not off `workspace list`, which lists workspaces. Warn
-     whenever the estimate exceeds ~70% of the balance. (Older versions of this
+     whenever the estimate exceeds ~70% of the balance.
+
+     Measured 2026-09-02 (starter plan) as a sanity anchor — always re-price, plans
+     differ: `gpt_image_2` 2k high **8.5 cr**; `seedance_2_0` 1080p 8s dive **72 cr**,
+     5s connector **45 cr**; `seedance_2_0_mini` 720p 8s **20 cr**. So an N=6 desktop
+     build ≈ **708 credits** (51 stills + 657 chain), and the mini draft tier ≈ 185.
+     If the numbers you get are far off these, you priced the wrong params. (Older versions of this
      skill said to spend one still and one video and diff the balance; that is
      obsolete and it charges the user to learn a free number. Only fall back to it
      if `generate cost` is missing on an older CLI.) On Monid and fal, cost is
@@ -366,11 +372,14 @@ Those three are the roster — all do both architectures. On the pay-per-use bac
 same model appears as Monid's `seedance-2.0` and fal's
 `bytedance/seedance-2.0/image-to-video`; `kling3_0` and `seedance_2_0_mini` are
 Higgsfield-only. **Re-check the schema before each build** (`higgsfield model get
-<job_type>`, or fal's model page) — this table has drifted before: `seedance_2_0_mini`
-lost `--mode`, and the catalog now lists `minimax_hailuo` *with* `end-image` support
-(this skill's 2026-07 probe found it rejected — re-probe before trusting either claim).
-Note also that **Seedance 2.5 has no start/end-image roles at all**, so despite the
-higher version number it cannot hold a seam and is not a substitute for 2.0.
+<job_type>`, or fal's model page) — and read the CONSTRAINTS block, not just the
+PARAM table: `minimax_hailuo` *lists* `end_image` as a param but constrains it with
+"end_image is not supported for 'minimax-2.3' or 'minimax-2.3-fast'", and `minimax-2.3`
+is the default variant. A flat capability table (including third-party mirrors of this
+catalog) will tell you that model takes an end-image; the live schema tells you the
+default variant doesn't. Note also that **Seedance 2.5 has no start/end-image roles at
+all**, so despite the higher version number it cannot hold a seam and is not a
+substitute for 2.0.
 (`kling3_0_turbo` also frame-locks
 via `--start-image`, but has no `--end-image`, so it's architecture-A-only and can't make
 connectors; it also takes a different flag set — no `--mode`, has `--resolution` — so it
@@ -382,7 +391,9 @@ One more architecture-A-only candidate, worth knowing because it is by far the c
 probe: **`minimax_hailuo`** (Hailuo-2.3, ~6 credits per 768p/6s clip vs 22–72 for the
 roster). Verified 2026-07: `--start-image` + prompt frame-locks (output frame 0 ≡ input,
 PSNR 33 dB) and a forward-glide prompt was obeyed, gently. Constraints: the 2.3 variant
-rejects `end_image` (no connectors → arch A only), output aspect follows the input image
+rejects `end_image` (no connectors → arch A only — re-confirmed 2026-09-02 against the
+live schema, whose CONSTRAINTS read "end_image is not supported for 'minimax-2.3' or
+'minimax-2.3-fast'"; `variant` defaults to `minimax-2.3`), output aspect follows the input image
 (hand it a 16:9 canvas, not a bare 3:2 still), motion runs subtler than seedance, and
 don't pass `--resolution` (the CLI mis-types the enum; the 768 default works — 1080
 supports 6s only). One clip ≠ a chain: qualify a leg-to-leg handoff before betting a
