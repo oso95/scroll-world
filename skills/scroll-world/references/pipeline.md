@@ -287,6 +287,21 @@ failure to watch for (it's why the harness exists): `minimax /v1/video_generatio
 still silently drops the image when `prompt` is present — image-only output proves
 nothing about steerability.
 
+## MiniMax H3 v2 backend
+
+For image-conditioned chains, MiniMax H3 v2 accepts first/last frames and reference
+content through the asynchronous `/v2/video_generation` API. Set `MINIMAX_API_KEY`,
+`MINIMAX_BASE_URL` (`https://api.minimax.io` or `https://api.minimaxi.com`), and use
+`VMODEL=MiniMax-H3`. Requests use `resolution:"2K"`, integer durations from 4 through
+15 seconds, and an explicit ratio.
+
+```bash
+minimax_video_create() { curl -fsS "$MINIMAX_BASE_URL/v2/video_generation" -H "Authorization: Bearer $MINIMAX_API_KEY" -H 'Content-Type: application/json' --data-binary "@$1" > "$2"; jq -e '.task_id' "$2" >/dev/null; }
+minimax_video_wait() { while :; do curl -fsS "$MINIMAX_BASE_URL/v2/query/video_generation/$1" -H "Authorization: Bearer $MINIMAX_API_KEY" > "$2"; case "$(jq -r '.task.status // empty' "$2")" in Success|Failed|Expired) return 0;; esac; sleep 8; done; }
+gen_dive_minimax() { jq -n --arg p "$(cat "$WORK/dive_$1.txt")" --arg u "$(monid_frame_url "$WORK/still_$1.png" "still_$1")" '{model:"MiniMax-H3",content:[{type:"text",text:$p},{type:"image_url",image_url:{url:$u},role:"first_frame"}],resolution:"2K",duration:'"$DIVE_DUR"',ratio:"16:9"}' > "$WORK/dive_$1.body.json"; minimax_video_create "$WORK/dive_$1.body.json" "$WORK/dive_$1.create.json"; minimax_video_wait "$(jq -r '.task_id' "$WORK/dive_$1.create.json")" "$WORK/dive_$1.json"; curl -fsSL "$(jq -r '.task.content.url' "$WORK/dive_$1.json")" -o "$WORK/dive_$1.mp4"; }
+gen_conn_minimax() { jq -n --arg p "$(cat "$WORK/conn_$1.txt")" --arg s "$(monid_frame_url "$2" "conn$1_start")" --arg e "$(monid_frame_url "$3" "conn$1_end")" '{model:"MiniMax-H3",content:[{type:"text",text:$p},{type:"image_url",image_url:{url:$s},role:"first_frame"},{type:"image_url",image_url:{url:$e},role:"last_frame"}],resolution:"2K",duration:'"$CONN_DUR"',ratio:"16:9"}' > "$WORK/conn_$1.body.json"; minimax_video_create "$WORK/conn_$1.body.json" "$WORK/conn_$1.create.json"; minimax_video_wait "$(jq -r '.task_id' "$WORK/conn_$1.create.json")" "$WORK/conn_$1.json"; curl -fsSL "$(jq -r '.task.content.url' "$WORK/conn_$1.json")" -o "$WORK/conn_$1.mp4"; }
+```
+
 ## Notes
 
 - `.[0].result_url` is the field on the `--wait --json` job object. `.min_result_url` is
